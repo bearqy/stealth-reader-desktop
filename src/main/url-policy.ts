@@ -1,3 +1,6 @@
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:'])
 
 export function normalizeNavigationInput(input: string): string {
@@ -24,6 +27,32 @@ export function normalizeNavigationInput(input: string): string {
 export function isAllowedNavigation(url: string): boolean {
   try {
     return ALLOWED_PROTOCOLS.has(new URL(url).protocol)
+  } catch {
+    return false
+  }
+}
+
+export function isTrustedRendererNavigation(
+  targetUrl: string,
+  developmentUrl?: string,
+  productionFile?: string
+): boolean {
+  try {
+    const target = new URL(targetUrl)
+    if (developmentUrl) {
+      const expected = new URL(developmentUrl)
+      return (
+        ALLOWED_PROTOCOLS.has(expected.protocol) &&
+        ALLOWED_PROTOCOLS.has(target.protocol) &&
+        target.origin === expected.origin
+      )
+    }
+
+    if (!productionFile) return false
+    return (
+      target.protocol === 'file:' &&
+      resolve(fileURLToPath(target)) === resolve(productionFile)
+    )
   } catch {
     return false
   }

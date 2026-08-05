@@ -162,10 +162,11 @@ function ReaderView({
   document: TextDocument | null
   settings: AppSettings
   searchQuery: string
-  onProgress: (progress: number) => void
+  onProgress: (itemId: string, progress: number) => void
 }): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
   const saveTimerRef = useRef<number | null>(null)
+  const pendingProgressRef = useRef<number | null>(null)
   const parts = useMemo(
     () => buildHighlightedParts(document?.content ?? '', searchQuery),
     [document?.content, searchQuery]
@@ -180,20 +181,29 @@ function ReaderView({
     })
   }, [document?.item.id])
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    const itemId = document?.item.id
+    return () => {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
-    },
-    []
-  )
+      if (itemId && pendingProgressRef.current !== null) {
+        onProgress(itemId, pendingProgressRef.current)
+        pendingProgressRef.current = null
+      }
+    }
+  }, [document?.item.id, onProgress])
 
   const handleScroll = (): void => {
     const scroll = scrollRef.current
     if (!scroll || !document) return
     const max = scroll.scrollHeight - scroll.clientHeight
     const progress = max > 0 ? scroll.scrollTop / max : 0
+    const itemId = document.item.id
+    pendingProgressRef.current = progress
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = window.setTimeout(() => onProgress(progress), 450)
+    saveTimerRef.current = window.setTimeout(() => {
+      onProgress(itemId, progress)
+      pendingProgressRef.current = null
+    }, 450)
   }
 
   if (!document) {
@@ -258,6 +268,20 @@ export function App(): React.JSX.Element {
   const collapseTimerRef = useRef<number | null>(null)
 
   const activeTab = browser.tabs.find((tab) => tab.id === browser.activeTabId)
+  const searchMatchCount = useMemo(() => {
+    const term = searchQuery.trim().toLocaleLowerCase()
+    if (!term || !document) return 0
+    const content = document.content.toLocaleLowerCase()
+    let count = 0
+    let cursor = 0
+    while (count < 300) {
+      const found = content.indexOf(term, cursor)
+      if (found < 0) break
+      count += 1
+      cursor = found + term.length
+    }
+    return count
+  }, [document, searchQuery])
 
   useEffect(() => {
     let mounted = true
@@ -389,13 +413,14 @@ export function App(): React.JSX.Element {
     }
   }
 
-  const saveProgress = (progress: number): void => {
-    if (!document) return
+  const saveProgress = useCallback((itemId: string, progress: number): void => {
     void window.stealthReader.library
-      .updateProgress(document.item.id, progress)
+      .updateProgress(itemId, progress)
       .then(setLibrary)
-      .catch(reportError)
-  }
+      .catch((error: unknown) =>
+        setNotice(error instanceof Error ? error.message : String(error))
+      )
+  }, [])
 
   const handlePointerLeave = (): void => {
     if (!settings?.collapseChromeOnBlur || mode !== 'browser') return
@@ -616,16 +641,7 @@ export function App(): React.JSX.Element {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
-                {searchQuery && (
-                  <span>
-                    {Math.min(
-                      300,
-                      document?.content
-                        .toLocaleLowerCase()
-                        .split(searchQuery.toLocaleLowerCase()).length ?? 1
-                    ) - 1}
-                  </span>
-                )}
+                {searchQuery && <span>{searchMatchCount}</span>}
               </label>
               <button className="primary-button" type="button" onClick={importText}>
                 <Icon name="upload" size={16} />

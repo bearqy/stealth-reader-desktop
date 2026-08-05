@@ -25,6 +25,7 @@ export class BrowserManager {
     webSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
       callback(false)
     })
+    webSession.setPermissionCheckHandler(() => false)
     webSession.on('will-download', (_event, item) => {
       item.setSaveDialogOptions({
         title: '保存下载文件',
@@ -119,11 +120,13 @@ export class BrowserManager {
   }
 
   setBounds(bounds: BrowserBounds): void {
+    const safeNumber = (value: number): number =>
+      Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0
     this.bounds = {
-      x: Math.max(0, Math.round(bounds.x)),
-      y: Math.max(0, Math.round(bounds.y)),
-      width: Math.max(0, Math.round(bounds.width)),
-      height: Math.max(0, Math.round(bounds.height)),
+      x: safeNumber(bounds.x),
+      y: safeNumber(bounds.y),
+      width: safeNumber(bounds.width),
+      height: safeNumber(bounds.height),
       visible: Boolean(bounds.visible)
     }
     this.syncVisibility()

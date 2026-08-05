@@ -4,6 +4,7 @@ import {
   BrowserWindow,
   dialog,
   globalShortcut,
+  type IpcMainInvokeEvent,
   ipcMain,
   Menu,
   nativeImage,
@@ -14,6 +15,7 @@ import { IPC } from '../shared/contracts'
 import { BrowserManager } from './browser-manager'
 import { StateStore } from './state-store'
 import { readTextFile } from './text-reader'
+import { isTrustedRendererNavigation } from './url-policy'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -41,7 +43,7 @@ function showWindow(): void {
 
 function toggleWindow(): void {
   if (!mainWindow) return
-  if (mainWindow.isVisible() && mainWindow.isFocused()) mainWindow.hide()
+  if (mainWindow.isVisible()) mainWindow.hide()
   else showWindow()
 }
 
@@ -99,6 +101,8 @@ function applyWindowSettings(settings: AppSettings): void {
 
 async function createWindow(): Promise<void> {
   const settings = stateStore.getSettings()
+  const rendererFile = join(__dirname, '../renderer/index.html')
+  const developmentUrl = process.env.ELECTRON_RENDERER_URL
   mainWindow = new BrowserWindow({
     width: 1180,
     height: 760,
@@ -117,6 +121,15 @@ async function createWindow(): Promise<void> {
 
   applyWindowSettings(settings)
   browserManager = new BrowserManager(mainWindow)
+  const allowTrustedNavigation = (event: Electron.Event, url: string): void => {
+    if (!isTrustedRendererNavigation(url, developmentUrl, rendererFile)) {
+      event.preventDefault()
+    }
+  }
+  mainWindow.webContents.on('will-navigate', allowTrustedNavigation)
+  mainWindow.webContents.on('will-redirect', allowTrustedNavigation)
+  mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault())
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
   mainWindow.on('close', (event) => {
     if (!quitting) {
@@ -133,23 +146,37 @@ async function createWindow(): Promise<void> {
     mainWindow?.show()
   })
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    await mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+  if (developmentUrl) {
+    await mainWindow.loadURL(developmentUrl)
   } else {
-    await mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    await mainWindow.loadFile(rendererFile)
   }
 
   await browserManager.create()
 }
 
 function registerIpc(): void {
-  ipcMain.handle(IPC.bootstrap, () => ({
-    settings: stateStore.getSettings(),
-    library: stateStore.getLibrary(),
-    browser: browserManager?.getState() ?? { tabs: [], activeTabId: null }
-  }))
+  const assertTrustedSender = (event: IpcMainInvokeEvent): void => {
+    if (
+      !mainWindow ||
+      event.sender !== mainWindow.webContents ||
+      event.senderFrame !== event.sender.mainFrame
+    ) {
+      throw new Error('拒绝来自非应用界面的请求')
+    }
+  }
 
-  ipcMain.handle(IPC.settingsUpdate, async (_event, patch: Partial<AppSettings>) => {
+  ipcMain.handle(IPC.bootstrap, (event) => {
+    assertTrustedSender(event)
+    return {
+      settings: stateStore.getSettings(),
+      library: stateStore.getLibrary(),
+      browser: browserManager?.getState() ?? { tabs: [], activeTabId: null }
+    }
+  })
+
+  ipcMain.handle(IPC.settingsUpdate, async (event, patch: Partial<AppSettings>) => {
+    assertTrustedSender(event)
     const previous = stateStore.getSettings()
     const next = await stateStore.updateSettings(patch)
     if (next.bossShortcut !== previous.bossShortcut) {
@@ -164,25 +191,50 @@ function registerIpc(): void {
     return next
   })
 
-  ipcMain.handle(IPC.windowHide, () => mainWindow?.hide())
-  ipcMain.handle(IPC.windowMinimize, () => mainWindow?.minimize())
+  ipcMain.handle(IPC.windowHide, (event) => {
+    assertTrustedSender(event)
+    mainWindow?.hide()
+  })
+  ipcMain.handle(IPC.windowMinimize, (event) => {
+    assertTrustedSender(event)
+    mainWindow?.minimize()
+  })
 
-  ipcMain.handle(IPC.browserCreate, (_event, url?: string) => browserManager?.create(url))
-  ipcMain.handle(IPC.browserClose, (_event, tabId: string) => browserManager?.close(tabId))
-  ipcMain.handle(IPC.browserActivate, (_event, tabId: string) =>
-    browserManager?.activate(tabId)
-  )
-  ipcMain.handle(IPC.browserNavigate, (_event, input: string) =>
-    browserManager?.navigate(input)
-  )
-  ipcMain.handle(IPC.browserBack, () => browserManager?.back())
-  ipcMain.handle(IPC.browserForward, () => browserManager?.forward())
-  ipcMain.handle(IPC.browserReload, () => browserManager?.reload())
-  ipcMain.handle(IPC.browserSetBounds, (_event, bounds: BrowserBounds) =>
+  ipcMain.handle(IPC.browserCreate, (event, url?: string) => {
+    assertTrustedSender(event)
+    return browserManager?.create(url)
+  })
+  ipcMain.handle(IPC.browserClose, (event, tabId: string) => {
+    assertTrustedSender(event)
+    return browserManager?.close(tabId)
+  })
+  ipcMain.handle(IPC.browserActivate, (event, tabId: string) => {
+    assertTrustedSender(event)
+    return browserManager?.activate(tabId)
+  })
+  ipcMain.handle(IPC.browserNavigate, (event, input: string) => {
+    assertTrustedSender(event)
+    return browserManager?.navigate(input)
+  })
+  ipcMain.handle(IPC.browserBack, (event) => {
+    assertTrustedSender(event)
+    browserManager?.back()
+  })
+  ipcMain.handle(IPC.browserForward, (event) => {
+    assertTrustedSender(event)
+    browserManager?.forward()
+  })
+  ipcMain.handle(IPC.browserReload, (event) => {
+    assertTrustedSender(event)
+    browserManager?.reload()
+  })
+  ipcMain.handle(IPC.browserSetBounds, (event, bounds: BrowserBounds) => {
+    assertTrustedSender(event)
     browserManager?.setBounds(bounds)
-  )
+  })
 
-  ipcMain.handle(IPC.libraryImportText, async () => {
+  ipcMain.handle(IPC.libraryImportText, async (event) => {
+    assertTrustedSender(event)
     const result = await dialog.showOpenDialog(mainWindow!, {
       title: '导入 TXT',
       properties: ['openFile'],
@@ -195,7 +247,8 @@ function registerIpc(): void {
     return { item, ...decoded }
   })
 
-  ipcMain.handle(IPC.libraryOpen, async (_event, itemId: string) => {
+  ipcMain.handle(IPC.libraryOpen, async (event, itemId: string) => {
+    assertTrustedSender(event)
     const stored = stateStore.getStoredItem(itemId)
     const decoded = await readTextFile(stored.filePath)
     const item = await stateStore.touchItem(itemId)
@@ -203,12 +256,15 @@ function registerIpc(): void {
   })
   ipcMain.handle(
     IPC.libraryUpdateProgress,
-    (_event, itemId: string, progress: number) =>
-      stateStore.updateProgress(itemId, progress)
+    (event, itemId: string, progress: number) => {
+      assertTrustedSender(event)
+      return stateStore.updateProgress(itemId, progress)
+    }
   )
-  ipcMain.handle(IPC.libraryRemove, (_event, itemId: string) =>
-    stateStore.removeItem(itemId)
-  )
+  ipcMain.handle(IPC.libraryRemove, (event, itemId: string) => {
+    assertTrustedSender(event)
+    return stateStore.removeItem(itemId)
+  })
 }
 
 app.whenReady().then(async () => {

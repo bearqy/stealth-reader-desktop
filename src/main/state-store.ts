@@ -155,6 +155,9 @@ export class StateStore {
     if (!item) {
       throw new Error('书籍不存在或已被移除')
     }
+    if (!Number.isFinite(progress)) {
+      throw new Error('阅读进度无效')
+    }
     item.progress = Math.min(1, Math.max(0, progress))
     item.lastOpenedAt = new Date().toISOString()
     await this.persist()

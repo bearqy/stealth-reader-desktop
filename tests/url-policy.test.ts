@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { isAllowedNavigation, normalizeNavigationInput } from '../src/main/url-policy'
+import {
+  isAllowedNavigation,
+  isTrustedRendererNavigation,
+  normalizeNavigationInput
+} from '../src/main/url-policy'
 
 describe('normalizeNavigationInput', () => {
   it('adds HTTPS to host-like input', () => {
@@ -28,5 +32,36 @@ describe('isAllowedNavigation', () => {
   it('rejects invalid and privileged URLs', () => {
     expect(isAllowedNavigation('javascript:alert(1)')).toBe(false)
     expect(isAllowedNavigation('not a url')).toBe(false)
+  })
+})
+
+describe('isTrustedRendererNavigation', () => {
+  it('allows only the configured development origin', () => {
+    expect(
+      isTrustedRendererNavigation(
+        'http://localhost:5173/settings',
+        'http://localhost:5173/'
+      )
+    ).toBe(true)
+    expect(
+      isTrustedRendererNavigation('https://example.com/', 'http://localhost:5173/')
+    ).toBe(false)
+  })
+
+  it('allows only the configured production file', () => {
+    expect(
+      isTrustedRendererNavigation(
+        'file:///Applications/Stealth/out/renderer/index.html#reader',
+        undefined,
+        '/Applications/Stealth/out/renderer/index.html'
+      )
+    ).toBe(true)
+    expect(
+      isTrustedRendererNavigation(
+        'file:///Applications/Stealth/other.html',
+        undefined,
+        '/Applications/Stealth/out/renderer/index.html'
+      )
+    ).toBe(false)
   })
 })

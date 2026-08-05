@@ -61,4 +61,16 @@ describe('StateStore', () => {
     expect(item).not.toHaveProperty('filePath')
     expect(store.getStoredItem(item.id).filePath).toBe(bookPath)
   })
+
+  it('rejects non-finite reading progress', async () => {
+    const directory = await temporaryDirectory()
+    const bookPath = join(directory, 'quiet.txt')
+    await writeFile(bookPath, 'hello', 'utf8')
+    const store = new StateStore(join(directory, 'state.json'))
+    await store.load()
+    const item = await store.addTextFile(bookPath)
+
+    await expect(store.updateProgress(item.id, Number.NaN)).rejects.toThrow('阅读进度无效')
+    expect(store.getLibrary()[0]?.progress).toBe(0)
+  })
 })
