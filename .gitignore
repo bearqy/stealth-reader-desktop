@@ -1,0 +1,17 @@
+.DS_Store
+.idea/
+.vscode/
+node_modules/
+dist/
+release/
+out/
+coverage/
+*.log
+*.local
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.key
