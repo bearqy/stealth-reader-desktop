@@ -278,6 +278,10 @@ function registerIpc(): void {
     assertTrustedSender(event)
     browserManager?.reload()
   })
+  ipcMain.handle(IPC.browserSetZoom, (event, zoomFactor: number | null) => {
+    assertTrustedSender(event)
+    return browserManager?.setZoom(zoomFactor)
+  })
   ipcMain.handle(IPC.browserSetBounds, (event, bounds: BrowserBounds) => {
     assertTrustedSender(event)
     browserManager?.setBounds(bounds)

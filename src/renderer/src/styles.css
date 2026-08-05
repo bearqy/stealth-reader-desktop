@@ -583,6 +583,45 @@ button {
   white-space: nowrap;
 }
 
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  margin-left: 5px;
+  background: #edf1ed;
+  border: 1px solid #e1e7e1;
+  border-radius: 9px;
+}
+
+.zoom-controls .icon-button {
+  width: 27px;
+  height: 30px;
+}
+
+.zoom-controls .icon-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.zoom-value {
+  min-width: 42px;
+  height: 30px;
+  padding: 0 4px;
+  color: #6b756e;
+  font-size: 9px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.zoom-value:hover:not(:disabled) {
+  color: #34463b;
+}
+
+.zoom-value:disabled {
+  opacity: 0.35;
+}
+
 .browser-surface {
   position: relative;
   min-height: 0;

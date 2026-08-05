@@ -339,20 +339,7 @@ export function App(): React.JSX.Element {
       observer.disconnect()
       window.removeEventListener('resize', syncBrowserBounds)
     }
-  }, [syncBrowserBounds, chromeCollapsed])
-
-  useEffect(
-    () => () => {
-      void window.stealthReader.browser.setBounds({
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-        visible: false
-      })
-    },
-    []
-  )
+  }, [syncBrowserBounds, chromeCollapsed, loading])
 
   const reportError = (error: unknown): void => {
     setNotice(error instanceof Error ? error.message : String(error))
@@ -669,6 +656,41 @@ export function App(): React.JSX.Element {
                     onChange={(event) => setAddress(event.target.value)}
                   />
                 </label>
+                <div className="zoom-controls">
+                  <IconButton
+                    disabled={!activeTab || activeTab.zoomFactor <= 0.5}
+                    icon="minimize"
+                    label="缩小网页"
+                    onClick={() =>
+                      activeTab &&
+                      window.stealthReader.browser
+                        .setZoom(activeTab.zoomFactor - 0.1)
+                        .catch(reportError)
+                    }
+                  />
+                  <button
+                    className="zoom-value"
+                    disabled={!activeTab}
+                    title="适应窗口"
+                    type="button"
+                    onClick={() =>
+                      window.stealthReader.browser.setZoom(null).catch(reportError)
+                    }
+                  >
+                    {Math.round((activeTab?.zoomFactor ?? 1) * 100)}%
+                  </button>
+                  <IconButton
+                    disabled={!activeTab || activeTab.zoomFactor >= 1.5}
+                    icon="plus"
+                    label="放大网页"
+                    onClick={() =>
+                      activeTab &&
+                      window.stealthReader.browser
+                        .setZoom(activeTab.zoomFactor + 0.1)
+                        .catch(reportError)
+                    }
+                  />
+                </div>
                 <span className="shortcut-hint">老板键 {settings.bossShortcut}</span>
               </form>
             </>

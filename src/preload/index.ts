@@ -31,6 +31,8 @@ const api: StealthReaderApi = {
     back: () => ipcRenderer.invoke(IPC.browserBack) as Promise<void>,
     forward: () => ipcRenderer.invoke(IPC.browserForward) as Promise<void>,
     reload: () => ipcRenderer.invoke(IPC.browserReload) as Promise<void>,
+    setZoom: (zoomFactor: number | null) =>
+      ipcRenderer.invoke(IPC.browserSetZoom, zoomFactor) as Promise<BrowserState>,
     setBounds: (bounds: BrowserBounds) =>
       ipcRenderer.invoke(IPC.browserSetBounds, bounds) as Promise<void>,
     onState: (listener: (state: BrowserState) => void) => {

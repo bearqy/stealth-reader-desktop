@@ -29,6 +29,7 @@ export interface BrowserTab {
   id: string
   title: string
   url: string
+  zoomFactor: number
   loading: boolean
   canGoBack: boolean
   canGoForward: boolean
@@ -70,6 +71,7 @@ export interface StealthReaderApi {
     back(): Promise<void>
     forward(): Promise<void>
     reload(): Promise<void>
+    setZoom(zoomFactor: number | null): Promise<BrowserState>
     setBounds(bounds: BrowserBounds): Promise<void>
     onState(listener: (state: BrowserState) => void): () => void
   }
@@ -93,6 +95,7 @@ export const IPC = {
   browserBack: 'browser:back',
   browserForward: 'browser:forward',
   browserReload: 'browser:reload',
+  browserSetZoom: 'browser:set-zoom',
   browserSetBounds: 'browser:set-bounds',
   browserState: 'browser:state',
   libraryImportText: 'library:import-text',

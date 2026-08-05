@@ -1,6 +1,7 @@
 import { BrowserWindow, WebContentsView, session } from 'electron'
 import type { BrowserBounds, BrowserState, BrowserTab } from '../shared/contracts'
 import { IPC } from '../shared/contracts'
+import { clampBrowserZoom, fitBrowserZoom } from './browser-zoom'
 import {
   isAllowedNavigation,
   isIgnorableLoadError,
@@ -10,6 +11,7 @@ import {
 interface ManagedTab {
   state: BrowserTab
   view: WebContentsView
+  autoFitZoom: boolean
 }
 
 export class BrowserManager {
@@ -52,10 +54,12 @@ export class BrowserManager {
     })
     const tab: ManagedTab = {
       view,
+      autoFitZoom: true,
       state: {
         id,
         title: '新标签',
         url,
+        zoomFactor: fitBrowserZoom(this.bounds.width),
         loading: true,
         canGoBack: false,
         canGoForward: false
@@ -63,6 +67,7 @@ export class BrowserManager {
     }
 
     this.tabs.set(id, tab)
+    view.webContents.setZoomFactor(tab.state.zoomFactor)
     this.window.contentView.addChildView(view)
     this.attachEvents(tab)
     this.activeTabId = id
@@ -123,6 +128,17 @@ export class BrowserManager {
     this.activeTab()?.view.webContents.reload()
   }
 
+  setZoom(zoomFactor: number | null): BrowserState {
+    const tab = this.activeTab()
+    if (!tab) return this.getState()
+    tab.autoFitZoom = zoomFactor === null
+    const nextZoom =
+      zoomFactor === null ? fitBrowserZoom(this.bounds.width) : clampBrowserZoom(zoomFactor)
+    this.applyZoom(tab, nextZoom)
+    this.emitState()
+    return this.getState()
+  }
+
   setBounds(bounds: BrowserBounds): void {
     const safeNumber = (value: number): number =>
       Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0
@@ -133,7 +149,13 @@ export class BrowserManager {
       height: safeNumber(bounds.height),
       visible: Boolean(bounds.visible)
     }
+    let zoomChanged = false
+    for (const tab of this.tabs.values()) {
+      if (!tab.autoFitZoom) continue
+      zoomChanged = this.applyZoom(tab, fitBrowserZoom(this.bounds.width)) || zoomChanged
+    }
     this.syncVisibility()
+    if (zoomChanged) this.emitState()
   }
 
   getState(): BrowserState {
@@ -152,6 +174,13 @@ export class BrowserManager {
 
   private activeTab(): ManagedTab | undefined {
     return this.activeTabId ? this.tabs.get(this.activeTabId) : undefined
+  }
+
+  private applyZoom(tab: ManagedTab, zoomFactor: number): boolean {
+    if (tab.state.zoomFactor === zoomFactor) return false
+    tab.state.zoomFactor = zoomFactor
+    tab.view.webContents.setZoomFactor(zoomFactor)
+    return true
   }
 
   private async loadUrl(tab: ManagedTab, url: string): Promise<void> {
@@ -209,7 +238,6 @@ export class BrowserManager {
         this.bounds.visible &&
         this.bounds.width > 0 &&
         this.bounds.height > 0
-      tab.view.setVisible(visible)
       if (visible) {
         tab.view.setBounds({
           x: this.bounds.x,
@@ -218,6 +246,7 @@ export class BrowserManager {
           height: this.bounds.height
         })
       }
+      tab.view.setVisible(visible)
     }
   }
 
