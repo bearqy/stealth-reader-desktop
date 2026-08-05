@@ -1,7 +1,11 @@
 import { BrowserWindow, WebContentsView, session } from 'electron'
 import type { BrowserBounds, BrowserState, BrowserTab } from '../shared/contracts'
 import { IPC } from '../shared/contracts'
-import { isAllowedNavigation, normalizeNavigationInput } from './url-policy'
+import {
+  isAllowedNavigation,
+  isIgnorableLoadError,
+  normalizeNavigationInput
+} from './url-policy'
 
 interface ManagedTab {
   state: BrowserTab
@@ -63,7 +67,7 @@ export class BrowserManager {
     this.attachEvents(tab)
     this.activeTabId = id
     this.syncVisibility()
-    await view.webContents.loadURL(url)
+    await this.loadUrl(tab, url)
     this.emitState()
     return this.getState()
   }
@@ -101,7 +105,7 @@ export class BrowserManager {
     }
     const url = normalizeNavigationInput(input)
     tab.state.url = url
-    await tab.view.webContents.loadURL(url)
+    await this.loadUrl(tab, url)
     return this.getState()
   }
 
@@ -148,6 +152,16 @@ export class BrowserManager {
 
   private activeTab(): ManagedTab | undefined {
     return this.activeTabId ? this.tabs.get(this.activeTabId) : undefined
+  }
+
+  private async loadUrl(tab: ManagedTab, url: string): Promise<void> {
+    try {
+      await tab.view.webContents.loadURL(url)
+    } catch (error) {
+      if (!isIgnorableLoadError(error, tab.view.webContents.getURL())) {
+        throw error
+      }
+    }
   }
 
   private attachEvents(tab: ManagedTab): void {

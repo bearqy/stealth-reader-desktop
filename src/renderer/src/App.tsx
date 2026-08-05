@@ -14,6 +14,7 @@ import type {
   LibraryItem,
   TextDocument
 } from '../../shared/contracts'
+import { DEFAULT_READING_SITES } from '../../shared/default-sites'
 
 type IconName =
   | 'arrow-left'
@@ -372,6 +373,14 @@ export function App(): React.JSX.Element {
     window.stealthReader.browser.navigate(address).catch(reportError)
   }
 
+  const openDefaultSite = (url: string): void => {
+    setMode('browser')
+    setShowSettings(false)
+    setChromeCollapsed(false)
+    setAddress(url)
+    window.stealthReader.browser.navigate(url).catch(reportError)
+  }
+
   const importText = async (): Promise<void> => {
     try {
       const imported = await window.stealthReader.library.importText()
@@ -482,53 +491,88 @@ export function App(): React.JSX.Element {
           </button>
         </nav>
 
-        <div className="sidebar-section">
-          <div className="section-heading">
-            <span>本地书架</span>
-            <button type="button" onClick={importText}>
-              <Icon name="plus" size={15} />
-            </button>
-          </div>
-          <div className="library-list">
-            {library.length === 0 ? (
-              <button className="library-empty" type="button" onClick={importText}>
-                <Icon name="upload" />
-                <span>导入第一本 TXT</span>
-              </button>
-            ) : (
-              library.map((item) => (
-                <div
-                  className={`library-item ${document?.item.id === item.id ? 'active' : ''}`}
-                  key={item.id}
-                >
-                  <button type="button" onClick={() => openBook(item.id)}>
-                    <span className="book-title">{item.title}</span>
-                    <span className="book-progress">
-                      {Math.round(item.progress * 100)}% · 本机
-                    </span>
-                    <span className="progress-track">
-                      <span style={{ width: `${item.progress * 100}%` }} />
-                    </span>
-                  </button>
+        {mode === 'browser' ? (
+          <div className="sidebar-section">
+            <div className="section-heading">
+              <span>常用站点</span>
+              <span className="section-count">{DEFAULT_READING_SITES.length}</span>
+            </div>
+            <div className="site-list">
+              {DEFAULT_READING_SITES.map((site) => {
+                const isActive = activeTab?.url.startsWith(new URL(site.url).origin)
+                return (
                   <button
-                    aria-label={`移除 ${item.title}`}
-                    className="remove-book"
+                    className={`site-item ${isActive ? 'active' : ''}`}
+                    key={site.id}
+                    title={site.url}
                     type="button"
-                    onClick={() => removeBook(item.id)}
+                    onClick={() => openDefaultSite(site.url)}
                   >
-                    <Icon name="trash" size={14} />
+                    <span
+                      className="site-mark"
+                      style={{ background: site.surface, color: site.accent }}
+                    >
+                      {site.shortName}
+                    </span>
+                    <span className="site-copy">
+                      <strong>{site.name}</strong>
+                      <small>{site.description}</small>
+                    </span>
+                    <span className="site-arrow">↗</span>
                   </button>
-                </div>
-              ))
-            )}
+                )
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="sidebar-section">
+            <div className="section-heading">
+              <span>本地书架</span>
+              <button type="button" onClick={importText}>
+                <Icon name="plus" size={15} />
+              </button>
+            </div>
+            <div className="library-list">
+              {library.length === 0 ? (
+                <button className="library-empty" type="button" onClick={importText}>
+                  <Icon name="upload" />
+                  <span>导入第一本 TXT</span>
+                </button>
+              ) : (
+                library.map((item) => (
+                  <div
+                    className={`library-item ${document?.item.id === item.id ? 'active' : ''}`}
+                    key={item.id}
+                  >
+                    <button type="button" onClick={() => openBook(item.id)}>
+                      <span className="book-title">{item.title}</span>
+                      <span className="book-progress">
+                        {Math.round(item.progress * 100)}% · 本机
+                      </span>
+                      <span className="progress-track">
+                        <span style={{ width: `${item.progress * 100}%` }} />
+                      </span>
+                    </button>
+                    <button
+                      aria-label={`移除 ${item.title}`}
+                      className="remove-book"
+                      type="button"
+                      onClick={() => removeBook(item.id)}
+                    >
+                      <Icon name="trash" size={14} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="privacy-card">
           <span className="privacy-dot" />
           <div>
             <strong>Local only</strong>
-            <p>无需登录，不上传阅读内容</p>
+            <p>无需账号，不上传本地书籍</p>
           </div>
         </div>
 

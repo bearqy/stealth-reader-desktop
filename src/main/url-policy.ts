@@ -32,6 +32,18 @@ export function isAllowedNavigation(url: string): boolean {
   }
 }
 
+export function isIgnorableLoadError(error: unknown, currentUrl: string): boolean {
+  if (!isAllowedNavigation(currentUrl) || typeof error !== 'object' || error === null) {
+    return false
+  }
+
+  const candidate = error as { code?: string; message?: string }
+  return (
+    candidate.code === 'ERR_ABORTED' ||
+    Boolean(candidate.message?.includes('ERR_ABORTED'))
+  )
+}
+
 export function isTrustedRendererNavigation(
   targetUrl: string,
   developmentUrl?: string,

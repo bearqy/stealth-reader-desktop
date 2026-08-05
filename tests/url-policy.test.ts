@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isAllowedNavigation,
+  isIgnorableLoadError,
   isTrustedRendererNavigation,
   normalizeNavigationInput
 } from '../src/main/url-policy'
@@ -32,6 +33,32 @@ describe('isAllowedNavigation', () => {
   it('rejects invalid and privileged URLs', () => {
     expect(isAllowedNavigation('javascript:alert(1)')).toBe(false)
     expect(isAllowedNavigation('not a url')).toBe(false)
+  })
+})
+
+describe('isIgnorableLoadError', () => {
+  it('ignores an aborted load after a safe redirect', () => {
+    expect(
+      isIgnorableLoadError(
+        { code: 'ERR_ABORTED', message: 'navigation interrupted' },
+        'https://fanqienovel.com/?force_mobile=1'
+      )
+    ).toBe(true)
+  })
+
+  it('does not hide unrelated or unsafe failures', () => {
+    expect(
+      isIgnorableLoadError(
+        { code: 'ERR_CERT_INVALID' },
+        'https://example.com/'
+      )
+    ).toBe(false)
+    expect(
+      isIgnorableLoadError(
+        { code: 'ERR_ABORTED' },
+        'file:///tmp/private.txt'
+      )
+    ).toBe(false)
   })
 })
 
