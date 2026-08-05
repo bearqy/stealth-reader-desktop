@@ -5,7 +5,7 @@ import { resolveWindowOpacity } from '../src/main/window-visibility'
 const settings: AppSettings = {
   alwaysOnTop: false,
   opacity: 0.65,
-  hideWhenUnfocused: false,
+  hideWhenPointerLeaves: false,
   bossShortcut: 'CommandOrControl+Shift+H',
   collapseChromeOnBlur: true,
   readerFontSize: 18,
@@ -14,15 +14,15 @@ const settings: AppSettings = {
 }
 
 describe('resolveWindowOpacity', () => {
-  it('keeps the configured opacity while the window is focused', () => {
-    expect(resolveWindowOpacity({ ...settings, hideWhenUnfocused: true }, true)).toBe(0.65)
+  it('keeps the configured opacity while the pointer is inside the window', () => {
+    expect(resolveWindowOpacity({ ...settings, hideWhenPointerLeaves: true }, true)).toBe(0.65)
   })
 
-  it('uses zero opacity when stealth mode is enabled and the window loses focus', () => {
-    expect(resolveWindowOpacity({ ...settings, hideWhenUnfocused: true }, false)).toBe(0)
+  it('uses zero opacity when stealth mode is enabled and the pointer leaves', () => {
+    expect(resolveWindowOpacity({ ...settings, hideWhenPointerLeaves: true }, false)).toBe(0)
   })
 
-  it('keeps the configured opacity on blur when stealth mode is disabled', () => {
+  it('keeps the configured opacity outside the window when stealth mode is disabled', () => {
     expect(resolveWindowOpacity(settings, false)).toBe(0.65)
   })
 })

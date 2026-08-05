@@ -30,9 +30,28 @@ describe('StateStore', () => {
     expect(store.getSettings()).toMatchObject({
       alwaysOnTop: false,
       opacity: 1,
-      hideWhenUnfocused: false,
+      hideWhenPointerLeaves: false,
       bossShortcut: 'CommandOrControl+Shift+H'
     })
+  })
+
+  it('migrates the earlier focus-based visibility setting', async () => {
+    const directory = await temporaryDirectory()
+    const filePath = join(directory, 'state.json')
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        version: 1,
+        settings: { hideWhenUnfocused: true },
+        library: []
+      }),
+      'utf8'
+    )
+    const store = new StateStore(filePath)
+
+    await store.load()
+
+    expect(store.getSettings().hideWhenPointerLeaves).toBe(true)
   })
 
   it('clamps unsafe opacity values before persisting', async () => {

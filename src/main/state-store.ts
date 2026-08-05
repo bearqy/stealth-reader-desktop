@@ -13,10 +13,14 @@ interface PersistedState {
   library: StoredLibraryItem[]
 }
 
+type StoredSettings = Partial<AppSettings> & {
+  hideWhenUnfocused?: boolean
+}
+
 const DEFAULT_SETTINGS: AppSettings = {
   alwaysOnTop: false,
   opacity: 1,
-  hideWhenUnfocused: false,
+  hideWhenPointerLeaves: false,
   bossShortcut: 'CommandOrControl+Shift+H',
   collapseChromeOnBlur: true,
   readerFontSize: 18,
@@ -32,11 +36,14 @@ function defaultState(): PersistedState {
   }
 }
 
-function clampSettings(settings: Partial<AppSettings>): AppSettings {
+function clampSettings(settings: StoredSettings): AppSettings {
   return {
     alwaysOnTop: Boolean(settings.alwaysOnTop),
     opacity: Math.min(1, Math.max(0.35, Number(settings.opacity) || 1)),
-    hideWhenUnfocused: Boolean(settings.hideWhenUnfocused),
+    hideWhenPointerLeaves:
+      settings.hideWhenPointerLeaves === undefined
+        ? Boolean(settings.hideWhenUnfocused)
+        : Boolean(settings.hideWhenPointerLeaves),
     bossShortcut:
       typeof settings.bossShortcut === 'string' && settings.bossShortcut.trim()
         ? settings.bossShortcut.trim()

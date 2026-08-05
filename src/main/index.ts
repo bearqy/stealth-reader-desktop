@@ -8,6 +8,7 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  screen,
   Tray
 } from 'electron'
 import type { AppSettings, BrowserBounds } from '../shared/contracts'
@@ -23,6 +24,8 @@ let tray: Tray | null = null
 let browserManager: BrowserManager | null = null
 let stateStore: StateStore
 let quitting = false
+let pointerVisibilityTimer: NodeJS.Timeout | null = null
+let appliedWindowOpacity: number | null = null
 
 function trayIcon(): Electron.NativeImage {
   const svg = `
@@ -38,17 +41,14 @@ function trayIcon(): Electron.NativeImage {
 
 function showWindow(): void {
   if (!mainWindow) return
-  mainWindow.setOpacity(stateStore.getSettings().opacity)
+  setWindowOpacity(stateStore.getSettings().opacity)
   mainWindow.show()
   mainWindow.focus()
 }
 
 function toggleWindow(): void {
   if (!mainWindow) return
-  const settings = stateStore.getSettings()
-  const isInvisibleOnBlur =
-    settings.hideWhenUnfocused && mainWindow.isVisible() && !mainWindow.isFocused()
-  if (mainWindow.isVisible() && !isInvisibleOnBlur) {
+  if (mainWindow.isVisible() && mainWindow.isFocused()) {
     mainWindow.hide()
     return
   }
@@ -101,10 +101,50 @@ function createTray(): void {
   tray.on('double-click', showWindow)
 }
 
+function isPointerInsideWindow(): boolean {
+  if (!mainWindow) return false
+  const pointer = screen.getCursorScreenPoint()
+  const bounds = mainWindow.getBounds()
+  return (
+    pointer.x >= bounds.x &&
+    pointer.x < bounds.x + bounds.width &&
+    pointer.y >= bounds.y &&
+    pointer.y < bounds.y + bounds.height
+  )
+}
+
+function stopPointerVisibilityTracking(): void {
+  if (!pointerVisibilityTimer) return
+  clearInterval(pointerVisibilityTimer)
+  pointerVisibilityTimer = null
+}
+
+function setWindowOpacity(opacity: number): void {
+  if (!mainWindow || appliedWindowOpacity === opacity) return
+  mainWindow.setOpacity(opacity)
+  appliedWindowOpacity = opacity
+}
+
+function refreshWindowOpacity(settings = stateStore.getSettings()): void {
+  if (!mainWindow) return
+  setWindowOpacity(resolveWindowOpacity(settings, isPointerInsideWindow()))
+}
+
+function updatePointerVisibilityTracking(settings: AppSettings): void {
+  if (!settings.hideWhenPointerLeaves) {
+    stopPointerVisibilityTracking()
+    return
+  }
+  if (!pointerVisibilityTimer) {
+    pointerVisibilityTimer = setInterval(refreshWindowOpacity, 80)
+  }
+}
+
 function applyWindowSettings(settings: AppSettings): void {
   if (!mainWindow) return
   mainWindow.setAlwaysOnTop(settings.alwaysOnTop)
-  mainWindow.setOpacity(resolveWindowOpacity(settings, mainWindow.isFocused()))
+  updatePointerVisibilityTracking(settings)
+  refreshWindowOpacity(settings)
 }
 
 async function createWindow(): Promise<void> {
@@ -145,13 +185,9 @@ async function createWindow(): Promise<void> {
       mainWindow?.hide()
     }
   })
-  mainWindow.on('focus', () => {
-    applyWindowSettings(stateStore.getSettings())
-  })
-  mainWindow.on('blur', () => {
-    applyWindowSettings(stateStore.getSettings())
-  })
   mainWindow.on('closed', () => {
+    stopPointerVisibilityTracking()
+    appliedWindowOpacity = null
     browserManager?.destroy()
     browserManager = null
     mainWindow = null

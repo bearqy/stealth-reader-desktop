@@ -729,14 +729,14 @@ export function App(): React.JSX.Element {
               </label>
               <label className="setting-card setting-toggle">
                 <div>
-                  <strong>失焦完全隐身</strong>
-                  <span>切换到其他窗口时透明度降为 0%，聚焦后恢复</span>
+                  <strong>鼠标移出完全隐身</strong>
+                  <span>鼠标离开窗口时降为 0%，移回原区域即恢复</span>
                 </div>
                 <input
-                  checked={settings.hideWhenUnfocused}
+                  checked={settings.hideWhenPointerLeaves}
                   type="checkbox"
                   onChange={(event) =>
-                    void updateSettings({ hideWhenUnfocused: event.target.checked })
+                    void updateSettings({ hideWhenPointerLeaves: event.target.checked })
                   }
                 />
               </label>
