@@ -30,6 +30,7 @@ describe('StateStore', () => {
     expect(store.getSettings()).toMatchObject({
       alwaysOnTop: false,
       opacity: 1,
+      hideWhenUnfocused: false,
       bossShortcut: 'CommandOrControl+Shift+H'
     })
   })

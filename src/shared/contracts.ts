@@ -3,6 +3,7 @@ export type AppMode = 'browser' | 'reader'
 export interface AppSettings {
   alwaysOnTop: boolean
   opacity: number
+  hideWhenUnfocused: boolean
   bossShortcut: string
   collapseChromeOnBlur: boolean
   readerFontSize: number

@@ -16,6 +16,7 @@ interface PersistedState {
 const DEFAULT_SETTINGS: AppSettings = {
   alwaysOnTop: false,
   opacity: 1,
+  hideWhenUnfocused: false,
   bossShortcut: 'CommandOrControl+Shift+H',
   collapseChromeOnBlur: true,
   readerFontSize: 18,
@@ -35,6 +36,7 @@ function clampSettings(settings: Partial<AppSettings>): AppSettings {
   return {
     alwaysOnTop: Boolean(settings.alwaysOnTop),
     opacity: Math.min(1, Math.max(0.35, Number(settings.opacity) || 1)),
+    hideWhenUnfocused: Boolean(settings.hideWhenUnfocused),
     bossShortcut:
       typeof settings.bossShortcut === 'string' && settings.bossShortcut.trim()
         ? settings.bossShortcut.trim()

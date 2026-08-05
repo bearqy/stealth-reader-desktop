@@ -16,6 +16,7 @@ import { BrowserManager } from './browser-manager'
 import { StateStore } from './state-store'
 import { readTextFile } from './text-reader'
 import { isTrustedRendererNavigation } from './url-policy'
+import { resolveWindowOpacity } from './window-visibility'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -37,14 +38,21 @@ function trayIcon(): Electron.NativeImage {
 
 function showWindow(): void {
   if (!mainWindow) return
+  mainWindow.setOpacity(stateStore.getSettings().opacity)
   mainWindow.show()
   mainWindow.focus()
 }
 
 function toggleWindow(): void {
   if (!mainWindow) return
-  if (mainWindow.isVisible()) mainWindow.hide()
-  else showWindow()
+  const settings = stateStore.getSettings()
+  const isInvisibleOnBlur =
+    settings.hideWhenUnfocused && mainWindow.isVisible() && !mainWindow.isFocused()
+  if (mainWindow.isVisible() && !isInvisibleOnBlur) {
+    mainWindow.hide()
+    return
+  }
+  showWindow()
 }
 
 function registerBossShortcut(shortcut: string, previous?: string): void {
@@ -96,7 +104,7 @@ function createTray(): void {
 function applyWindowSettings(settings: AppSettings): void {
   if (!mainWindow) return
   mainWindow.setAlwaysOnTop(settings.alwaysOnTop)
-  mainWindow.setOpacity(settings.opacity)
+  mainWindow.setOpacity(resolveWindowOpacity(settings, mainWindow.isFocused()))
 }
 
 async function createWindow(): Promise<void> {
@@ -137,13 +145,19 @@ async function createWindow(): Promise<void> {
       mainWindow?.hide()
     }
   })
+  mainWindow.on('focus', () => {
+    applyWindowSettings(stateStore.getSettings())
+  })
+  mainWindow.on('blur', () => {
+    applyWindowSettings(stateStore.getSettings())
+  })
   mainWindow.on('closed', () => {
     browserManager?.destroy()
     browserManager = null
     mainWindow = null
   })
   mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
+    showWindow()
   })
 
   if (developmentUrl) {
