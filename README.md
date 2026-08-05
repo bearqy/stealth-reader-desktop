@@ -2,7 +2,42 @@
 
 一个面向 macOS 与 Windows 的低干扰桌面阅读与网页浏览工具。项目目标是提供透明、置顶、快速隐藏、多标签网页浏览与本地电子书阅读能力，并以原创品牌和交互实现同类产品体验。
 
-> 当前阶段：产品与技术方案设计。尚未开始功能开发。
+> 当前阶段：本地 MVP 开发。账号、会员和远程后端暂不进入范围。
+
+## 当前可运行能力
+
+- Electron 安全进程边界：主进程、受限 preload、React 应用界面和不可信网页标签相互隔离。
+- Chromium 多标签浏览、地址输入/搜索、前进、后退、刷新和新窗口拦截。
+- 窗口置顶、35%–100% 透明度、托盘、最小化和全局老板键。
+- 鼠标离开后收起网页工具栏，从顶部细条恢复。
+- TXT 文件导入、UTF-8/UTF-16/GB18030 识别、本地书架、全文搜索和阅读进度。
+- 字号、行距和三种阅读主题，设置仅保存在本机。
+- macOS arm64 实际启动验证；生产构建和自动化测试已建立。
+
+当前实现状态和后续缺口见 [MVP 状态](docs/MVP_STATUS.md)。
+
+## 本地运行
+
+要求 Node.js 22.12 或更高版本。
+
+```bash
+npm install
+npm run dev
+```
+
+Electron 运行时下载较慢时，可以显式使用镜像：
+
+```bash
+ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run install:electron
+```
+
+验证命令：
+
+```bash
+npm run typecheck
+npm test
+npm run build
+```
 
 ## 产品定位
 
@@ -28,6 +63,7 @@
 - [安全与隐私](docs/SECURITY_PRIVACY.md)
 - [开发规范](docs/DEVELOPMENT.md)
 - [交付路线图](docs/ROADMAP.md)
+- [MVP 状态](docs/MVP_STATUS.md)
 - [技术决策：Electron](docs/decisions/0001-electron-desktop-runtime.md)
 
 ## 当前不做
