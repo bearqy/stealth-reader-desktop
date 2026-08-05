@@ -6,6 +6,7 @@ dist/
 release/
 out/
 coverage/
+*.tsbuildinfo
 *.log
 *.local
 .env
