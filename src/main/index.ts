@@ -168,7 +168,7 @@ async function createWindow(): Promise<void> {
   })
 
   applyWindowSettings(settings)
-  browserManager = new BrowserManager(mainWindow)
+  browserManager = new BrowserManager(mainWindow, settings.hideWebMedia)
   const allowTrustedNavigation = (event: Electron.Event, url: string): void => {
     if (!isTrustedRendererNavigation(url, developmentUrl, rendererFile)) {
       event.preventDefault()
@@ -236,6 +236,9 @@ function registerIpc(): void {
         await stateStore.updateSettings({ bossShortcut: previous.bossShortcut })
         throw error
       }
+    }
+    if (next.hideWebMedia !== previous.hideWebMedia) {
+      browserManager?.setMediaHidden(next.hideWebMedia)
     }
     applyWindowSettings(next)
     return next

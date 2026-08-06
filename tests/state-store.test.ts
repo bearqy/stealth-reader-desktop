@@ -32,6 +32,7 @@ describe('StateStore', () => {
       opacity: 1,
       hideWhenPointerLeaves: false,
       sidebarHidden: false,
+      hideWebMedia: false,
       bossShortcut: 'CommandOrControl+Shift+H'
     })
   })
@@ -79,6 +80,19 @@ describe('StateStore', () => {
       settings: { sidebarHidden: boolean }
     }
     expect(persisted.settings.sidebarHidden).toBe(true)
+  })
+
+  it('persists the hidden web media preference', async () => {
+    const directory = await temporaryDirectory()
+    const filePath = join(directory, 'state.json')
+    const store = new StateStore(filePath)
+    await store.load()
+
+    expect((await store.updateSettings({ hideWebMedia: true })).hideWebMedia).toBe(true)
+    const persisted = JSON.parse(await readFile(filePath, 'utf8')) as {
+      settings: { hideWebMedia: boolean }
+    }
+    expect(persisted.settings.hideWebMedia).toBe(true)
   })
 
   it('stores library metadata without exposing the source path', async () => {

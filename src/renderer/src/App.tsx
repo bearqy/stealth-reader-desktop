@@ -24,6 +24,7 @@ type IconName =
   | 'droplet'
   | 'eye-off'
   | 'gear'
+  | 'media-off'
   | 'minimize'
   | 'plus'
   | 'refresh'
@@ -58,6 +59,13 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     <>
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
+    </>
+  ),
+  'media-off': (
+    <>
+      <rect width="18" height="16" x="3" y="4" rx="2" />
+      <circle cx="8.5" cy="9" r="1.5" />
+      <path d="m4 17 4.5-4.5 3.5 3.5 2-2 6 6M3 3l18 18" />
     </>
   ),
   minimize: <path d="M5 12h14" />,
@@ -573,14 +581,12 @@ export function App(): React.JSX.Element {
         </div>
 
         <div className="sidebar-actions">
-          <button
-            className={showSettings ? 'active' : ''}
-            type="button"
+          <IconButton
+            className={`sidebar-settings-toggle ${showSettings ? 'active' : ''}`}
+            icon="gear"
+            label="设置"
             onClick={() => setShowSettings((value) => !value)}
-          >
-            <Icon name="gear" />
-            设置
-          </button>
+          />
           <IconButton
             icon="minimize"
             label="最小化"
@@ -590,6 +596,15 @@ export function App(): React.JSX.Element {
             icon="eye-off"
             label="立即隐藏"
             onClick={() => void window.stealthReader.window.hide()}
+          />
+          <IconButton
+            className="media-visibility-toggle"
+            icon="media-off"
+            label={settings.hideWebMedia ? '显示网页图片和视频' : '隐藏网页图片和视频'}
+            pressed={settings.hideWebMedia}
+            onClick={() =>
+              void updateSettings({ hideWebMedia: !settings.hideWebMedia })
+            }
           />
           <IconButton
             className="sidebar-visibility-toggle"
@@ -790,6 +805,19 @@ export function App(): React.JSX.Element {
                   type="checkbox"
                   onChange={(event) =>
                     void updateSettings({ sidebarHidden: event.target.checked })
+                  }
+                />
+              </label>
+              <label className="setting-card setting-toggle">
+                <div>
+                  <strong>隐藏网页图片和视频</strong>
+                  <span>隐藏图片、背景图和视频画面，保留文字与页面布局</span>
+                </div>
+                <input
+                  checked={settings.hideWebMedia}
+                  type="checkbox"
+                  onChange={(event) =>
+                    void updateSettings({ hideWebMedia: event.target.checked })
                   }
                 />
               </label>

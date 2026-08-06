@@ -2,6 +2,7 @@ import { BrowserWindow, WebContentsView, session } from 'electron'
 import type { BrowserBounds, BrowserState, BrowserTab } from '../shared/contracts'
 import { IPC } from '../shared/contracts'
 import { clampBrowserZoom, fitBrowserZoom } from './browser-zoom'
+import { HIDDEN_WEB_MEDIA_CSS } from './web-media'
 import {
   isAllowedNavigation,
   isIgnorableLoadError,
@@ -12,6 +13,8 @@ interface ManagedTab {
   state: BrowserTab
   view: WebContentsView
   autoFitZoom: boolean
+  mediaCssKey: string | null
+  mediaStyleRevision: number
 }
 
 export class BrowserManager {
@@ -26,7 +29,10 @@ export class BrowserManager {
   }
   private sequence = 0
 
-  constructor(private readonly window: BrowserWindow) {
+  constructor(
+    private readonly window: BrowserWindow,
+    private mediaHidden = false
+  ) {
     const webSession = session.fromPartition('persist:stealth-reader-web')
     webSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
       callback(false)
@@ -55,6 +61,8 @@ export class BrowserManager {
     const tab: ManagedTab = {
       view,
       autoFitZoom: true,
+      mediaCssKey: null,
+      mediaStyleRevision: 0,
       state: {
         id,
         title: '新标签',
@@ -128,6 +136,15 @@ export class BrowserManager {
     this.activeTab()?.view.webContents.reload()
   }
 
+  setMediaHidden(hidden: boolean): void {
+    const next = Boolean(hidden)
+    if (next === this.mediaHidden) return
+    this.mediaHidden = next
+    for (const tab of this.tabs.values()) {
+      void this.syncMediaVisibility(tab)
+    }
+  }
+
   setZoom(zoomFactor: number | null): BrowserState {
     const tab = this.activeTab()
     if (!tab) return this.getState()
@@ -193,6 +210,28 @@ export class BrowserManager {
     }
   }
 
+  private async syncMediaVisibility(tab: ManagedTab): Promise<void> {
+    const revision = ++tab.mediaStyleRevision
+    const previousKey = tab.mediaCssKey
+    tab.mediaCssKey = null
+    if (previousKey) {
+      await tab.view.webContents.removeInsertedCSS(previousKey).catch(() => undefined)
+    }
+    if (!this.mediaHidden || tab.view.webContents.isDestroyed()) return
+
+    const key = await tab.view.webContents.insertCSS(HIDDEN_WEB_MEDIA_CSS).catch(() => null)
+    if (!key) return
+    if (
+      revision !== tab.mediaStyleRevision ||
+      !this.mediaHidden ||
+      tab.view.webContents.isDestroyed()
+    ) {
+      await tab.view.webContents.removeInsertedCSS(key).catch(() => undefined)
+      return
+    }
+    tab.mediaCssKey = key
+  }
+
   private attachEvents(tab: ManagedTab): void {
     const { webContents } = tab.view
     const update = (): void => {
@@ -204,8 +243,13 @@ export class BrowserManager {
     }
 
     webContents.on('did-start-loading', () => {
+      tab.mediaStyleRevision += 1
+      tab.mediaCssKey = null
       tab.state.loading = true
       update()
+    })
+    webContents.on('dom-ready', () => {
+      void this.syncMediaVisibility(tab)
     })
     webContents.on('did-stop-loading', () => {
       tab.state.loading = false
