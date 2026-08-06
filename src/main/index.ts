@@ -145,6 +145,7 @@ function applyWindowSettings(settings: AppSettings): void {
   mainWindow.setAlwaysOnTop(settings.alwaysOnTop)
   if (process.platform === 'darwin') {
     mainWindow.setHasShadow(!settings.transparentAppChrome)
+    mainWindow.setWindowButtonVisibility(!settings.transparentAppChrome)
   }
   updatePointerVisibilityTracking(settings)
   refreshWindowOpacity(settings)
