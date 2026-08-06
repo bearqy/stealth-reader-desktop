@@ -6,6 +6,7 @@ const settings: AppSettings = {
   alwaysOnTop: false,
   opacity: 0.65,
   hideWhenPointerLeaves: false,
+  sidebarHidden: false,
   bossShortcut: 'CommandOrControl+Shift+H',
   collapseChromeOnBlur: true,
   readerFontSize: 18,

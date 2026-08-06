@@ -21,6 +21,7 @@ type IconName =
   | 'arrow-right'
   | 'book'
   | 'browser'
+  | 'droplet'
   | 'eye-off'
   | 'gear'
   | 'minimize'
@@ -46,6 +47,7 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <path d="M3 9h18M8 4v5" />
     </>
   ),
+  droplet: <path d="M12 2.5s6 6.6 6 11a6 6 0 0 1-12 0c0-4.4 6-11 6-11Z" />,
   'eye-off': (
     <>
       <path d="m3 3 18 18" />
@@ -102,18 +104,23 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }): React.JSX
 function IconButton({
   label,
   icon,
+  className,
   disabled,
+  pressed,
   onClick
 }: {
   label: string
   icon: IconName
+  className?: string
   disabled?: boolean
+  pressed?: boolean
   onClick: () => void
 }): React.JSX.Element {
   return (
     <button
       aria-label={label}
-      className="icon-button"
+      aria-pressed={pressed}
+      className={`icon-button ${className ?? ''}`}
       disabled={disabled}
       title={label}
       type="button"
@@ -440,7 +447,9 @@ export function App(): React.JSX.Element {
 
   return (
     <div
-      className={`app-shell ${chromeCollapsed ? 'chrome-collapsed' : ''}`}
+      className={`app-shell ${chromeCollapsed ? 'chrome-collapsed' : ''} ${
+        settings.sidebarHidden ? 'sidebar-hidden' : ''
+      }`}
       onMouseLeave={handlePointerLeave}
     >
       <div className="chrome-reveal" onMouseEnter={revealChrome} />
@@ -581,6 +590,15 @@ export function App(): React.JSX.Element {
             icon="eye-off"
             label="立即隐藏"
             onClick={() => void window.stealthReader.window.hide()}
+          />
+          <IconButton
+            className="sidebar-visibility-toggle"
+            icon="droplet"
+            label={settings.sidebarHidden ? '显示左侧栏' : '隐藏左侧栏'}
+            pressed={settings.sidebarHidden}
+            onClick={() =>
+              void updateSettings({ sidebarHidden: !settings.sidebarHidden })
+            }
           />
         </div>
       </aside>
@@ -759,6 +777,19 @@ export function App(): React.JSX.Element {
                   type="checkbox"
                   onChange={(event) =>
                     void updateSettings({ hideWhenPointerLeaves: event.target.checked })
+                  }
+                />
+              </label>
+              <label className="setting-card setting-toggle">
+                <div>
+                  <strong>隐藏左侧功能栏</strong>
+                  <span>收起网页、阅读和常用站点，只保留水滴恢复按钮</span>
+                </div>
+                <input
+                  checked={settings.sidebarHidden}
+                  type="checkbox"
+                  onChange={(event) =>
+                    void updateSettings({ sidebarHidden: event.target.checked })
                   }
                 />
               </label>

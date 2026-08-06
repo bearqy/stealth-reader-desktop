@@ -65,6 +65,11 @@ button {
   width: 100%;
   height: 100%;
   background: #e9eee9;
+  transition: grid-template-columns 180ms ease;
+}
+
+.app-shell.sidebar-hidden {
+  grid-template-columns: 48px minmax(0, 1fr);
 }
 
 .chrome-reveal {
@@ -76,6 +81,10 @@ button {
   height: 8px;
 }
 
+.sidebar-hidden .chrome-reveal {
+  left: 48px;
+}
+
 .sidebar {
   position: relative;
   z-index: 10;
@@ -85,6 +94,16 @@ button {
   padding: 22px 16px 16px;
   background: #f4f7f3;
   border-right: 1px solid rgba(22, 40, 31, 0.09);
+  overflow: hidden;
+  transition: padding 180ms ease;
+}
+
+.sidebar-hidden .sidebar {
+  padding: 16px 6px;
+}
+
+.sidebar-hidden .sidebar > :not(.sidebar-actions) {
+  display: none;
 }
 
 .brand {
@@ -410,13 +429,41 @@ button {
 
 .sidebar-actions {
   display: grid;
-  grid-template-columns: 1fr 34px 34px;
+  grid-template-columns: 1fr 34px 34px 34px;
   gap: 5px;
 }
 
 .sidebar-actions > button:first-child {
   justify-content: flex-start;
   padding-left: 10px;
+}
+
+.sidebar-visibility-toggle {
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.sidebar-visibility-toggle[aria-pressed="true"] {
+  color: #f4f8f5;
+  background: #557762;
+  transform: rotate(180deg);
+}
+
+.sidebar-visibility-toggle[aria-pressed="true"] svg {
+  fill: currentColor;
+}
+
+.sidebar-hidden .sidebar-actions {
+  display: flex;
+  margin-top: auto;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sidebar-hidden .sidebar-actions > :not(.sidebar-visibility-toggle) {
+  display: none;
 }
 
 .icon-button {
@@ -996,6 +1043,14 @@ button {
 
   .chrome-reveal {
     left: 190px;
+  }
+
+  .app-shell.sidebar-hidden {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .sidebar-hidden .chrome-reveal {
+    left: 48px;
   }
 
   .shortcut-hint {

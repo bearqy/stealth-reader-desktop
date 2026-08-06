@@ -31,6 +31,7 @@ describe('StateStore', () => {
       alwaysOnTop: false,
       opacity: 1,
       hideWhenPointerLeaves: false,
+      sidebarHidden: false,
       bossShortcut: 'CommandOrControl+Shift+H'
     })
   })
@@ -65,6 +66,19 @@ describe('StateStore', () => {
       settings: { opacity: number }
     }
     expect(persisted.settings.opacity).toBe(0.35)
+  })
+
+  it('persists the collapsed sidebar preference', async () => {
+    const directory = await temporaryDirectory()
+    const filePath = join(directory, 'state.json')
+    const store = new StateStore(filePath)
+    await store.load()
+
+    expect((await store.updateSettings({ sidebarHidden: true })).sidebarHidden).toBe(true)
+    const persisted = JSON.parse(await readFile(filePath, 'utf8')) as {
+      settings: { sidebarHidden: boolean }
+    }
+    expect(persisted.settings.sidebarHidden).toBe(true)
   })
 
   it('stores library metadata without exposing the source path', async () => {

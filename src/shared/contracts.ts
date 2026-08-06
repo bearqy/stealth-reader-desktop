@@ -4,6 +4,7 @@ export interface AppSettings {
   alwaysOnTop: boolean
   opacity: number
   hideWhenPointerLeaves: boolean
+  sidebarHidden: boolean
   bossShortcut: string
   collapseChromeOnBlur: boolean
   readerFontSize: number
