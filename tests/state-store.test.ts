@@ -34,6 +34,7 @@ describe('StateStore', () => {
       sidebarHidden: false,
       hideWebMedia: false,
       textOnlyWeb: false,
+      transparentAppChrome: false,
       bossShortcut: 'CommandOrControl+Shift+H'
     })
   })
@@ -107,6 +108,21 @@ describe('StateStore', () => {
       settings: { textOnlyWeb: boolean }
     }
     expect(persisted.settings.textOnlyWeb).toBe(true)
+  })
+
+  it('persists the transparent app chrome preference', async () => {
+    const directory = await temporaryDirectory()
+    const filePath = join(directory, 'state.json')
+    const store = new StateStore(filePath)
+    await store.load()
+
+    expect(
+      (await store.updateSettings({ transparentAppChrome: true })).transparentAppChrome
+    ).toBe(true)
+    const persisted = JSON.parse(await readFile(filePath, 'utf8')) as {
+      settings: { transparentAppChrome: boolean }
+    }
+    expect(persisted.settings.transparentAppChrome).toBe(true)
   })
 
   it('stores library metadata without exposing the source path', async () => {

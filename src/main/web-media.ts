@@ -21,7 +21,9 @@ export const TEXT_ONLY_WEB_CSS = `
   :root,
   html,
   body,
-  body * {
+  *,
+  *::before,
+  *::after {
     background-color: transparent !important;
     background-image: none !important;
     border-color: transparent !important;
@@ -30,8 +32,19 @@ export const TEXT_ONLY_WEB_CSS = `
     text-shadow: none !important;
   }
 
+  *::before,
+  *::after {
+    content: none !important;
+    display: none !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
   body,
-  body * {
+  body *,
+  body *::before,
+  body *::after {
     color: #26372e !important;
   }
 
@@ -60,6 +73,18 @@ export const TEXT_ONLY_WEB_CSS = `
   button {
     appearance: none !important;
     background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+`
+
+export const TRANSPARENT_WEB_CHROME_CSS = `
+  ::-webkit-scrollbar,
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-thumb,
+  ::-webkit-scrollbar-corner {
+    background: transparent !important;
+    background-color: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
   }

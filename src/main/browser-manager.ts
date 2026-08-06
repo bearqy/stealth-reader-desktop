@@ -2,7 +2,11 @@ import { BrowserWindow, WebContentsView, session } from 'electron'
 import type { BrowserBounds, BrowserState, BrowserTab } from '../shared/contracts'
 import { IPC } from '../shared/contracts'
 import { clampBrowserZoom, fitBrowserZoom } from './browser-zoom'
-import { HIDDEN_WEB_MEDIA_CSS, TEXT_ONLY_WEB_CSS } from './web-media'
+import {
+  HIDDEN_WEB_MEDIA_CSS,
+  TEXT_ONLY_WEB_CSS,
+  TRANSPARENT_WEB_CHROME_CSS
+} from './web-media'
 import {
   isAllowedNavigation,
   isIgnorableLoadError,
@@ -32,7 +36,8 @@ export class BrowserManager {
   constructor(
     private readonly window: BrowserWindow,
     private mediaHidden = false,
-    private textOnly = false
+    private textOnly = false,
+    private transparentChrome = false
   ) {
     const webSession = session.fromPartition('persist:stealth-reader-web')
     webSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
@@ -156,6 +161,15 @@ export class BrowserManager {
     }
   }
 
+  setChromeTransparent(enabled: boolean): void {
+    const next = Boolean(enabled)
+    if (next === this.transparentChrome) return
+    this.transparentChrome = next
+    for (const tab of this.tabs.values()) {
+      void this.syncContentStyle(tab)
+    }
+  }
+
   setZoom(zoomFactor: number | null): BrowserState {
     const tab = this.activeTab()
     if (!tab) return this.getState()
@@ -231,7 +245,8 @@ export class BrowserManager {
     if (tab.view.webContents.isDestroyed()) return
     const css = [
       this.mediaHidden ? HIDDEN_WEB_MEDIA_CSS : '',
-      this.textOnly ? TEXT_ONLY_WEB_CSS : ''
+      this.textOnly ? TEXT_ONLY_WEB_CSS : '',
+      this.transparentChrome ? TRANSPARENT_WEB_CHROME_CSS : ''
     ]
       .filter(Boolean)
       .join('\n')
@@ -243,7 +258,7 @@ export class BrowserManager {
     if (!key) return
     if (
       revision !== tab.contentStyleRevision ||
-      (!this.mediaHidden && !this.textOnly) ||
+      (!this.mediaHidden && !this.textOnly && !this.transparentChrome) ||
       tab.view.webContents.isDestroyed()
     ) {
       await tab.view.webContents.removeInsertedCSS(key).catch(() => undefined)

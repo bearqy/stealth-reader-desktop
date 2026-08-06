@@ -7,6 +7,7 @@ export interface AppSettings {
   sidebarHidden: boolean
   hideWebMedia: boolean
   textOnlyWeb: boolean
+  transparentAppChrome: boolean
   bossShortcut: string
   collapseChromeOnBlur: boolean
   readerFontSize: number

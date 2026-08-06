@@ -143,6 +143,9 @@ function updatePointerVisibilityTracking(settings: AppSettings): void {
 function applyWindowSettings(settings: AppSettings): void {
   if (!mainWindow) return
   mainWindow.setAlwaysOnTop(settings.alwaysOnTop)
+  if (process.platform === 'darwin') {
+    mainWindow.setHasShadow(!settings.transparentAppChrome)
+  }
   updatePointerVisibilityTracking(settings)
   refreshWindowOpacity(settings)
 }
@@ -159,6 +162,7 @@ async function createWindow(): Promise<void> {
     show: false,
     transparent: process.platform === 'darwin',
     backgroundColor: process.platform === 'darwin' ? '#00000000' : '#edf1ec',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     title: 'Stealth Reader',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -172,7 +176,8 @@ async function createWindow(): Promise<void> {
   browserManager = new BrowserManager(
     mainWindow,
     settings.hideWebMedia,
-    settings.textOnlyWeb
+    settings.textOnlyWeb,
+    settings.transparentAppChrome
   )
   const allowTrustedNavigation = (event: Electron.Event, url: string): void => {
     if (!isTrustedRendererNavigation(url, developmentUrl, rendererFile)) {
@@ -247,6 +252,9 @@ function registerIpc(): void {
     }
     if (next.textOnlyWeb !== previous.textOnlyWeb) {
       browserManager?.setTextOnly(next.textOnlyWeb)
+    }
+    if (next.transparentAppChrome !== previous.transparentAppChrome) {
+      browserManager?.setChromeTransparent(next.transparentAppChrome)
     }
     applyWindowSettings(next)
     return next

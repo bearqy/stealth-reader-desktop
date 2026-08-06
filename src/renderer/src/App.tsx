@@ -459,9 +459,12 @@ export function App(): React.JSX.Element {
     <div
       className={`app-shell ${chromeCollapsed ? 'chrome-collapsed' : ''} ${
         settings.sidebarHidden ? 'sidebar-hidden' : ''
-      } ${settings.textOnlyWeb ? 'text-only-web' : ''}`}
+      } ${settings.textOnlyWeb ? 'text-only-web' : ''} ${
+        settings.transparentAppChrome ? 'transparent-app-chrome' : ''
+      }`}
       onMouseLeave={handlePointerLeave}
     >
+      <div className="window-drag-region" />
       <div className="chrome-reveal" onMouseEnter={revealChrome} />
       <aside className="sidebar">
         <div className="brand">
@@ -850,6 +853,19 @@ export function App(): React.JSX.Element {
                   type="checkbox"
                   onChange={(event) =>
                     void updateSettings({ textOnlyWeb: event.target.checked })
+                  }
+                />
+              </label>
+              <label className="setting-card setting-toggle">
+                <div>
+                  <strong>透明窗口外壳</strong>
+                  <span>透明标题栏、侧栏、顶部工具栏、窗口阴影和网页滚动条</span>
+                </div>
+                <input
+                  checked={settings.transparentAppChrome}
+                  type="checkbox"
+                  onChange={(event) =>
+                    void updateSettings({ transparentAppChrome: event.target.checked })
                   }
                 />
               </label>
