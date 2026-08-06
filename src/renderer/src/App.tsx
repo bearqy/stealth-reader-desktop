@@ -280,10 +280,8 @@ export function App(): React.JSX.Element {
   const [document, setDocument] = useState<TextDocument | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showSettings, setShowSettings] = useState(false)
-  const [chromeCollapsed, setChromeCollapsed] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const browserSurfaceRef = useRef<HTMLDivElement>(null)
-  const collapseTimerRef = useRef<number | null>(null)
 
   const activeTab = browser.tabs.find((tab) => tab.id === browser.activeTabId)
   const searchMatchCount = useMemo(() => {
@@ -356,7 +354,7 @@ export function App(): React.JSX.Element {
       observer.disconnect()
       window.removeEventListener('resize', syncBrowserBounds)
     }
-  }, [syncBrowserBounds, chromeCollapsed, loading])
+  }, [syncBrowserBounds, settings?.toolbarCollapsed, loading])
 
   const reportError = (error: unknown): void => {
     setNotice(error instanceof Error ? error.message : String(error))
@@ -380,7 +378,6 @@ export function App(): React.JSX.Element {
   const openDefaultSite = (url: string): void => {
     setMode('browser')
     setShowSettings(false)
-    setChromeCollapsed(false)
     setAddress(url)
     window.stealthReader.browser.navigate(url).catch(reportError)
   }
@@ -435,17 +432,6 @@ export function App(): React.JSX.Element {
       )
   }, [])
 
-  const handlePointerLeave = (): void => {
-    if (!settings?.collapseChromeOnBlur || mode !== 'browser') return
-    if (collapseTimerRef.current) window.clearTimeout(collapseTimerRef.current)
-    collapseTimerRef.current = window.setTimeout(() => setChromeCollapsed(true), 700)
-  }
-
-  const revealChrome = (): void => {
-    if (collapseTimerRef.current) window.clearTimeout(collapseTimerRef.current)
-    setChromeCollapsed(false)
-  }
-
   if (loading || !settings) {
     return (
       <div className="launch-screen">
@@ -457,15 +443,13 @@ export function App(): React.JSX.Element {
 
   return (
     <div
-      className={`app-shell ${chromeCollapsed ? 'chrome-collapsed' : ''} ${
+      className={`app-shell ${settings.toolbarCollapsed ? 'chrome-collapsed' : ''} ${
         settings.sidebarHidden ? 'sidebar-hidden' : ''
       } ${settings.textOnlyWeb ? 'text-only-web' : ''} ${
         settings.transparentAppChrome ? 'transparent-app-chrome' : ''
       }`}
-      onMouseLeave={handlePointerLeave}
     >
       <div className="window-drag-region" />
-      <div className="chrome-reveal" onMouseEnter={revealChrome} />
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">S</div>
@@ -640,7 +624,7 @@ export function App(): React.JSX.Element {
       </aside>
 
       <main className="workspace">
-        <header className="topbar" onMouseEnter={revealChrome}>
+        <header className="topbar">
           {mode === 'browser' ? (
             <>
               <div className="tabs-row">
@@ -792,14 +776,14 @@ export function App(): React.JSX.Element {
               </label>
               <label className="setting-card setting-toggle">
                 <div>
-                  <strong>鼠标移出收起工具栏</strong>
-                  <span>顶部保留细条，移入即可恢复</span>
+                  <strong>收起顶部工具栏</strong>
+                  <span>打开后保持收起，关闭后恢复；不跟踪鼠标</span>
                 </div>
                 <input
-                  checked={settings.collapseChromeOnBlur}
+                  checked={settings.toolbarCollapsed}
                   type="checkbox"
                   onChange={(event) =>
-                    void updateSettings({ collapseChromeOnBlur: event.target.checked })
+                    void updateSettings({ toolbarCollapsed: event.target.checked })
                   }
                 />
               </label>

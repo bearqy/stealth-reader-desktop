@@ -35,6 +35,7 @@ describe('StateStore', () => {
       hideWebMedia: false,
       textOnlyWeb: false,
       transparentAppChrome: false,
+      toolbarCollapsed: false,
       bossShortcut: 'CommandOrControl+Shift+H'
     })
   })
@@ -56,6 +57,40 @@ describe('StateStore', () => {
     await store.load()
 
     expect(store.getSettings().hideWhenPointerLeaves).toBe(true)
+  })
+
+  it('migrates the earlier automatic toolbar setting to the manual switch', async () => {
+    const directory = await temporaryDirectory()
+    const filePath = join(directory, 'state.json')
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        version: 1,
+        settings: { collapseChromeOnBlur: true },
+        library: []
+      }),
+      'utf8'
+    )
+    const store = new StateStore(filePath)
+
+    await store.load()
+
+    expect(store.getSettings().toolbarCollapsed).toBe(true)
+  })
+
+  it('persists the manual toolbar collapse preference', async () => {
+    const directory = await temporaryDirectory()
+    const filePath = join(directory, 'state.json')
+    const store = new StateStore(filePath)
+    await store.load()
+
+    expect((await store.updateSettings({ toolbarCollapsed: true })).toolbarCollapsed).toBe(
+      true
+    )
+    const persisted = JSON.parse(await readFile(filePath, 'utf8')) as {
+      settings: { toolbarCollapsed: boolean }
+    }
+    expect(persisted.settings.toolbarCollapsed).toBe(true)
   })
 
   it('clamps unsafe opacity values before persisting', async () => {

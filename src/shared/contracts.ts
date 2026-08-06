@@ -9,7 +9,7 @@ export interface AppSettings {
   textOnlyWeb: boolean
   transparentAppChrome: boolean
   bossShortcut: string
-  collapseChromeOnBlur: boolean
+  toolbarCollapsed: boolean
   readerFontSize: number
   readerLineHeight: number
   readerTheme: 'paper' | 'green' | 'dark'

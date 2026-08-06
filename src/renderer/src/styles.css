@@ -102,19 +102,6 @@ button {
   box-shadow: none;
 }
 
-.chrome-reveal {
-  position: absolute;
-  z-index: 30;
-  top: 30px;
-  right: 0;
-  left: 236px;
-  height: 8px;
-}
-
-.sidebar-hidden .chrome-reveal {
-  left: 48px;
-}
-
 .sidebar {
   position: relative;
   z-index: 10;
@@ -1089,16 +1076,8 @@ button {
     grid-template-columns: 190px minmax(0, 1fr);
   }
 
-  .chrome-reveal {
-    left: 190px;
-  }
-
   .app-shell.sidebar-hidden {
     grid-template-columns: 48px minmax(0, 1fr);
-  }
-
-  .sidebar-hidden .chrome-reveal {
-    left: 48px;
   }
 
   .shortcut-hint {

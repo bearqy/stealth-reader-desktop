@@ -15,6 +15,7 @@ interface PersistedState {
 
 type StoredSettings = Partial<AppSettings> & {
   hideWhenUnfocused?: boolean
+  collapseChromeOnBlur?: boolean
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -26,7 +27,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   textOnlyWeb: false,
   transparentAppChrome: false,
   bossShortcut: 'CommandOrControl+Shift+H',
-  collapseChromeOnBlur: true,
+  toolbarCollapsed: false,
   readerFontSize: 18,
   readerLineHeight: 1.9,
   readerTheme: 'paper'
@@ -56,10 +57,10 @@ function clampSettings(settings: StoredSettings): AppSettings {
       typeof settings.bossShortcut === 'string' && settings.bossShortcut.trim()
         ? settings.bossShortcut.trim()
         : DEFAULT_SETTINGS.bossShortcut,
-    collapseChromeOnBlur:
-      settings.collapseChromeOnBlur === undefined
-        ? DEFAULT_SETTINGS.collapseChromeOnBlur
-        : Boolean(settings.collapseChromeOnBlur),
+    toolbarCollapsed:
+      settings.toolbarCollapsed === undefined
+        ? Boolean(settings.collapseChromeOnBlur)
+        : Boolean(settings.toolbarCollapsed),
     readerFontSize: Math.min(
       34,
       Math.max(12, Number(settings.readerFontSize) || DEFAULT_SETTINGS.readerFontSize)

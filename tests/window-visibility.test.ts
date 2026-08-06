@@ -11,7 +11,7 @@ const settings: AppSettings = {
   textOnlyWeb: false,
   transparentAppChrome: false,
   bossShortcut: 'CommandOrControl+Shift+H',
-  collapseChromeOnBlur: true,
+  toolbarCollapsed: false,
   readerFontSize: 18,
   readerLineHeight: 1.9,
   readerTheme: 'paper'
