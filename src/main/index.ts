@@ -157,7 +157,8 @@ async function createWindow(): Promise<void> {
     minWidth: 760,
     minHeight: 500,
     show: false,
-    backgroundColor: '#edf1ec',
+    transparent: process.platform === 'darwin',
+    backgroundColor: process.platform === 'darwin' ? '#00000000' : '#edf1ec',
     title: 'Stealth Reader',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

@@ -459,7 +459,7 @@ export function App(): React.JSX.Element {
     <div
       className={`app-shell ${chromeCollapsed ? 'chrome-collapsed' : ''} ${
         settings.sidebarHidden ? 'sidebar-hidden' : ''
-      }`}
+      } ${settings.textOnlyWeb ? 'text-only-web' : ''}`}
       onMouseLeave={handlePointerLeave}
     >
       <div className="chrome-reveal" onMouseEnter={revealChrome} />

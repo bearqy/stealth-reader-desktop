@@ -1,6 +1,6 @@
 :root {
   color: #18221d;
-  background: #e8ede8;
+  background: transparent;
   font-family:
     Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
@@ -70,6 +70,15 @@ button {
 
 .app-shell.sidebar-hidden {
   grid-template-columns: 48px minmax(0, 1fr);
+}
+
+.app-shell.text-only-web {
+  background: transparent;
+}
+
+.text-only-web .workspace,
+.text-only-web .browser-surface {
+  background: transparent;
 }
 
 .chrome-reveal {
