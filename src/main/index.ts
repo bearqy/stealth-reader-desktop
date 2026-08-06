@@ -28,14 +28,11 @@ let pointerVisibilityTimer: NodeJS.Timeout | null = null
 let appliedWindowOpacity: number | null = null
 
 function trayIcon(): Electron.NativeImage {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
-      <path d="M2.5 3.5h4.1A2.4 2.4 0 0 1 9 5.9v8.6a3.2 3.2 0 0 0-2.4-1.1H2.5z" fill="none" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
-      <path d="M15.5 3.5h-4.1A2.4 2.4 0 0 0 9 5.9v8.6a3.2 3.2 0 0 1 2.4-1.1h4.1z" fill="none" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
-    </svg>`
-  const image = nativeImage
-    .createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`)
-    .resize({ width: 18, height: 18 })
+  const png =
+    'iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAJKADAAQAAAABAAAAJAAAAAAqDuP8AAABhElEQVRYCe1Xu0oEQRBcRfGR+QEGChoIRmrsoRj6AWrgZxgceJcI/oJmJv6ECCeokZlgImrgB5ip2VmFM0tfM2vPrafB0Q3FVlf3PLZ24OaKwsMdGDIHRtT7MN8FFpSu0w8IL8AF8KaKM8i3gDlgStV0+gjhHOjqQsz3QpENOfhE3zEwHkBOLWds7OGaZYyV7JtYzqj2YgLCAbAWChu6ISPvWVNvSI6/QtKRguCT4JvAatD0Ru6gXwJ0KxUNiOupgtbaEKKV5FY00RD745OaFW00xH7yMkZLVo8cYdiTGEpOrXb8dkNc+FWsLrmQ8+kgNpS/Wkanb8gyyR1yhywHrLqfIXfIcsCq+xmyHPrpgraDwSsVE/BOzV/2DiDnIN8GGsAsUHWnXkQtK1roihen/3oeyp3pM3QTNiR7/pLzpW/lAvpvEGtLwLxsSvBpaMvAPsBPI4Of8gy4B95lIcGfoT0k9NoSz0h0lW97DVSdm9qL9DuQLp8CJ0DK8X7n8353YLgc+AJU12YRF4lI0AAAAABJRU5ErkJggg=='
+  const image = nativeImage.createFromBuffer(Buffer.from(png, 'base64'), {
+    scaleFactor: 2
+  })
   if (process.platform === 'darwin') image.setTemplateImage(true)
   return image
 }
@@ -85,7 +82,8 @@ async function registerInitialBossShortcut(): Promise<void> {
 }
 
 function createTray(): void {
-  tray = new Tray(trayIcon())
+  const icon = trayIcon()
+  tray = new Tray(icon)
   tray.setToolTip('Stealth Reader')
   const trayMenu = Menu.buildFromTemplate([
     { label: '显示程序', click: showWindow },
