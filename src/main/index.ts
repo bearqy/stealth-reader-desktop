@@ -29,19 +29,21 @@ let appliedWindowOpacity: number | null = null
 
 function trayIcon(): Electron.NativeImage {
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">
-      <rect x="2" y="2" width="28" height="28" rx="8" fill="#17201c"/>
-      <path d="M9 10h10a4 4 0 0 1 4 4v8H13a4 4 0 0 1-4-4z" fill="#d5efdf"/>
-      <path d="M13 14h7M13 17h6" stroke="#17201c" stroke-width="1.7" stroke-linecap="round"/>
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
+      <path d="M2.5 3.5h4.1A2.4 2.4 0 0 1 9 5.9v8.6a3.2 3.2 0 0 0-2.4-1.1H2.5z" fill="none" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M15.5 3.5h-4.1A2.4 2.4 0 0 0 9 5.9v8.6a3.2 3.2 0 0 1 2.4-1.1h4.1z" fill="none" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
     </svg>`
-  return nativeImage
+  const image = nativeImage
     .createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`)
     .resize({ width: 18, height: 18 })
+  if (process.platform === 'darwin') image.setTemplateImage(true)
+  return image
 }
 
 function showWindow(): void {
   if (!mainWindow) return
   setWindowOpacity(stateStore.getSettings().opacity)
+  if (mainWindow.isMinimized()) mainWindow.restore()
   mainWindow.show()
   mainWindow.focus()
 }
@@ -85,20 +87,22 @@ async function registerInitialBossShortcut(): Promise<void> {
 function createTray(): void {
   tray = new Tray(trayIcon())
   tray.setToolTip('Stealth Reader')
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: '显示/隐藏', click: toggleWindow },
-      { type: 'separator' },
-      {
-        label: '退出',
-        click: () => {
-          quitting = true
-          app.quit()
-        }
+  const trayMenu = Menu.buildFromTemplate([
+    { label: '显示程序', click: showWindow },
+    {
+      label: '退出程序',
+      click: () => {
+        quitting = true
+        app.quit()
       }
-    ])
-  )
-  tray.on('double-click', showWindow)
+    }
+  ])
+  if (process.platform === 'darwin') {
+    tray.on('click', () => tray?.popUpContextMenu(trayMenu))
+    tray.on('right-click', () => tray?.popUpContextMenu(trayMenu))
+  } else {
+    tray.setContextMenu(trayMenu)
+  }
 }
 
 function isPointerInsideWindow(): boolean {
