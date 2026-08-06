@@ -168,7 +168,11 @@ async function createWindow(): Promise<void> {
   })
 
   applyWindowSettings(settings)
-  browserManager = new BrowserManager(mainWindow, settings.hideWebMedia)
+  browserManager = new BrowserManager(
+    mainWindow,
+    settings.hideWebMedia,
+    settings.textOnlyWeb
+  )
   const allowTrustedNavigation = (event: Electron.Event, url: string): void => {
     if (!isTrustedRendererNavigation(url, developmentUrl, rendererFile)) {
       event.preventDefault()
@@ -239,6 +243,9 @@ function registerIpc(): void {
     }
     if (next.hideWebMedia !== previous.hideWebMedia) {
       browserManager?.setMediaHidden(next.hideWebMedia)
+    }
+    if (next.textOnlyWeb !== previous.textOnlyWeb) {
+      browserManager?.setTextOnly(next.textOnlyWeb)
     }
     applyWindowSettings(next)
     return next

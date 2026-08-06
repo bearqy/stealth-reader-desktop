@@ -33,6 +33,7 @@ describe('StateStore', () => {
       hideWhenPointerLeaves: false,
       sidebarHidden: false,
       hideWebMedia: false,
+      textOnlyWeb: false,
       bossShortcut: 'CommandOrControl+Shift+H'
     })
   })
@@ -93,6 +94,19 @@ describe('StateStore', () => {
       settings: { hideWebMedia: boolean }
     }
     expect(persisted.settings.hideWebMedia).toBe(true)
+  })
+
+  it('persists the web text-only preference', async () => {
+    const directory = await temporaryDirectory()
+    const filePath = join(directory, 'state.json')
+    const store = new StateStore(filePath)
+    await store.load()
+
+    expect((await store.updateSettings({ textOnlyWeb: true })).textOnlyWeb).toBe(true)
+    const persisted = JSON.parse(await readFile(filePath, 'utf8')) as {
+      settings: { textOnlyWeb: boolean }
+    }
+    expect(persisted.settings.textOnlyWeb).toBe(true)
   })
 
   it('stores library metadata without exposing the source path', async () => {

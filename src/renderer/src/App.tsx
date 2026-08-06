@@ -29,6 +29,7 @@ type IconName =
   | 'plus'
   | 'refresh'
   | 'search'
+  | 'text-only'
   | 'trash'
   | 'upload'
   | 'x'
@@ -77,6 +78,7 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <path d="m20 20-4-4" />
     </>
   ),
+  'text-only': <path d="M5 5h14M12 5v14M8 19h8" />,
   trash: (
     <>
       <path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6" />
@@ -599,11 +601,27 @@ export function App(): React.JSX.Element {
           />
           <IconButton
             className="media-visibility-toggle"
+            disabled={settings.textOnlyWeb}
             icon="media-off"
-            label={settings.hideWebMedia ? '显示网页图片和视频' : '隐藏网页图片和视频'}
-            pressed={settings.hideWebMedia}
+            label={
+              settings.textOnlyWeb
+                ? '纯文字模式已隐藏媒体'
+                : settings.hideWebMedia
+                  ? '显示网页图片和视频'
+                  : '隐藏网页图片和视频'
+            }
+            pressed={settings.hideWebMedia || settings.textOnlyWeb}
             onClick={() =>
               void updateSettings({ hideWebMedia: !settings.hideWebMedia })
+            }
+          />
+          <IconButton
+            className="text-only-toggle"
+            icon="text-only"
+            label={settings.textOnlyWeb ? '退出纯文字模式' : '开启纯文字模式'}
+            pressed={settings.textOnlyWeb}
+            onClick={() =>
+              void updateSettings({ textOnlyWeb: !settings.textOnlyWeb })
             }
           />
           <IconButton
@@ -815,9 +833,23 @@ export function App(): React.JSX.Element {
                 </div>
                 <input
                   checked={settings.hideWebMedia}
+                  disabled={settings.textOnlyWeb}
                   type="checkbox"
                   onChange={(event) =>
                     void updateSettings({ hideWebMedia: event.target.checked })
+                  }
+                />
+              </label>
+              <label className="setting-card setting-toggle">
+                <div>
+                  <strong>网页纯文字模式</strong>
+                  <span>仅保留可读文字，其他网页区域全部透明</span>
+                </div>
+                <input
+                  checked={settings.textOnlyWeb}
+                  type="checkbox"
+                  onChange={(event) =>
+                    void updateSettings({ textOnlyWeb: event.target.checked })
                   }
                 />
               </label>

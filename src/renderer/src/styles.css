@@ -429,7 +429,7 @@ button {
 
 .sidebar-actions {
   display: grid;
-  grid-template-columns: repeat(5, 34px);
+  grid-template-columns: repeat(6, 34px);
   justify-content: space-between;
   gap: 0;
 }
@@ -439,13 +439,15 @@ button {
   padding: 0;
 }
 
-.media-visibility-toggle {
+.media-visibility-toggle,
+.text-only-toggle {
   transition:
     color 160ms ease,
     background 160ms ease;
 }
 
-.media-visibility-toggle[aria-pressed="true"] {
+.media-visibility-toggle[aria-pressed="true"],
+.text-only-toggle[aria-pressed="true"] {
   color: #f4f8f5;
   background: #557762;
 }
@@ -476,7 +478,9 @@ button {
 
 .sidebar-hidden
   .sidebar-actions
-  > :not(.media-visibility-toggle):not(.sidebar-visibility-toggle) {
+  > :not(.media-visibility-toggle):not(.text-only-toggle):not(
+    .sidebar-visibility-toggle
+  ) {
   display: none;
 }
 

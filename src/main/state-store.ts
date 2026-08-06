@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   hideWhenPointerLeaves: false,
   sidebarHidden: false,
   hideWebMedia: false,
+  textOnlyWeb: false,
   bossShortcut: 'CommandOrControl+Shift+H',
   collapseChromeOnBlur: true,
   readerFontSize: 18,
@@ -48,6 +49,7 @@ function clampSettings(settings: StoredSettings): AppSettings {
         : Boolean(settings.hideWhenPointerLeaves),
     sidebarHidden: Boolean(settings.sidebarHidden),
     hideWebMedia: Boolean(settings.hideWebMedia),
+    textOnlyWeb: Boolean(settings.textOnlyWeb),
     bossShortcut:
       typeof settings.bossShortcut === 'string' && settings.bossShortcut.trim()
         ? settings.bossShortcut.trim()

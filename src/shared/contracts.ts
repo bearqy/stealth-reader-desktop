@@ -6,6 +6,7 @@ export interface AppSettings {
   hideWhenPointerLeaves: boolean
   sidebarHidden: boolean
   hideWebMedia: boolean
+  textOnlyWeb: boolean
   bossShortcut: string
   collapseChromeOnBlur: boolean
   readerFontSize: number
