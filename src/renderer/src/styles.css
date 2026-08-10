@@ -102,6 +102,13 @@ button {
   box-shadow: none;
 }
 
+.app-shell.transparent-app-chrome,
+.transparent-app-chrome .workspace,
+.transparent-app-chrome .settings-panel,
+.transparent-app-chrome .browser-surface {
+  background: transparent;
+}
+
 .sidebar {
   position: relative;
   z-index: 10;
@@ -445,10 +452,18 @@ button {
 }
 
 .sidebar-actions {
-  display: grid;
-  grid-template-columns: repeat(6, 34px);
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 0;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sidebar-actions .icon-button,
+.sidebar-actions > button:first-child {
+  width: 30px;
+  height: 34px;
+  min-width: 0;
 }
 
 .sidebar-actions > button:first-child {
@@ -1129,6 +1144,18 @@ button {
 
   .app-shell.sidebar-hidden {
     grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .app-shell:not(.sidebar-hidden) .sidebar-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 34px);
+    justify-content: start;
+    gap: 6px;
+  }
+
+  .app-shell:not(.sidebar-hidden) .sidebar-actions .icon-button,
+  .app-shell:not(.sidebar-hidden) .sidebar-actions > button:first-child {
+    width: 34px;
   }
 
   .shortcut-hint {

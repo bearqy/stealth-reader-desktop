@@ -17,6 +17,11 @@ import { BrowserManager } from './browser-manager'
 import { StateStore } from './state-store'
 import { readTextFile } from './text-reader'
 import { isTrustedRendererNavigation } from './url-policy'
+import {
+  shouldHideWindowOnClose,
+  windowChromeOptions,
+  windowsTitleBarOverlay
+} from './window-chrome'
 import { resolveWindowOpacity } from './window-visibility'
 
 let mainWindow: BrowserWindow | null = null
@@ -149,6 +154,9 @@ function applyWindowSettings(settings: AppSettings): void {
     mainWindow.setHasShadow(!settings.transparentAppChrome)
     mainWindow.setWindowButtonVisibility(!settings.transparentAppChrome)
   }
+  if (process.platform === 'win32') {
+    mainWindow.setTitleBarOverlay(windowsTitleBarOverlay(settings.transparentAppChrome))
+  }
   updatePointerVisibilityTracking(settings)
   refreshWindowOpacity(settings)
 }
@@ -163,9 +171,7 @@ async function createWindow(): Promise<void> {
     minWidth: 760,
     minHeight: 500,
     show: false,
-    transparent: process.platform === 'darwin',
-    backgroundColor: process.platform === 'darwin' ? '#00000000' : '#edf1ec',
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    ...windowChromeOptions(process.platform, settings.transparentAppChrome),
     title: 'Stealth Reader',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -174,6 +180,10 @@ async function createWindow(): Promise<void> {
       sandbox: true
     }
   })
+
+  if (process.platform === 'win32') {
+    mainWindow.setMenu(null)
+  }
 
   applyWindowSettings(settings)
   browserManager = new BrowserManager(
@@ -193,7 +203,7 @@ async function createWindow(): Promise<void> {
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
   mainWindow.on('close', (event) => {
-    if (!quitting) {
+    if (shouldHideWindowOnClose(process.platform, quitting)) {
       event.preventDefault()
       mainWindow?.hide()
     }
@@ -343,20 +353,30 @@ function registerIpc(): void {
   })
 }
 
-app.whenReady().then(async () => {
-  app.setAppUserModelId('com.stealthreader.desktop')
-  stateStore = new StateStore(join(app.getPath('userData'), 'local-state.json'))
-  await stateStore.load()
-  registerIpc()
-  await registerInitialBossShortcut()
-  createTray()
-  await createWindow()
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) void createWindow()
-    else showWindow()
+if (!hasSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    showWindow()
   })
-})
+
+  app.whenReady().then(async () => {
+    app.setAppUserModelId('com.stealthreader.desktop')
+    stateStore = new StateStore(join(app.getPath('userData'), 'local-state.json'))
+    await stateStore.load()
+    registerIpc()
+    await registerInitialBossShortcut()
+    createTray()
+    await createWindow()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) void createWindow()
+      else showWindow()
+    })
+  })
+}
 
 app.on('before-quit', () => {
   quitting = true

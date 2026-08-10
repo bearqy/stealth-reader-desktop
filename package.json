@@ -1,6 +1,6 @@
 {
   "name": "stealth-reader-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Local-first desktop web browser and reader for macOS and Windows",
   "main": "./out/main/index.js",
@@ -59,7 +59,8 @@
     },
     "win": {
       "target": [
-        "nsis"
+        "nsis",
+        "portable"
       ]
     },
     "nsis": {
