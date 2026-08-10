@@ -17,7 +17,11 @@ import { BrowserManager } from './browser-manager'
 import { StateStore } from './state-store'
 import { readTextFile } from './text-reader'
 import { isTrustedRendererNavigation } from './url-policy'
-import { windowChromeOptions, windowsTitleBarOverlay } from './window-chrome'
+import {
+  shouldHideWindowOnClose,
+  windowChromeOptions,
+  windowsTitleBarOverlay
+} from './window-chrome'
 import { resolveWindowOpacity } from './window-visibility'
 
 let mainWindow: BrowserWindow | null = null
@@ -199,7 +203,7 @@ async function createWindow(): Promise<void> {
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
   mainWindow.on('close', (event) => {
-    if (!quitting) {
+    if (shouldHideWindowOnClose(process.platform, quitting)) {
       event.preventDefault()
       mainWindow?.hide()
     }
@@ -349,20 +353,30 @@ function registerIpc(): void {
   })
 }
 
-app.whenReady().then(async () => {
-  app.setAppUserModelId('com.stealthreader.desktop')
-  stateStore = new StateStore(join(app.getPath('userData'), 'local-state.json'))
-  await stateStore.load()
-  registerIpc()
-  await registerInitialBossShortcut()
-  createTray()
-  await createWindow()
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) void createWindow()
-    else showWindow()
+if (!hasSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    showWindow()
   })
-})
+
+  app.whenReady().then(async () => {
+    app.setAppUserModelId('com.stealthreader.desktop')
+    stateStore = new StateStore(join(app.getPath('userData'), 'local-state.json'))
+    await stateStore.load()
+    registerIpc()
+    await registerInitialBossShortcut()
+    createTray()
+    await createWindow()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) void createWindow()
+      else showWindow()
+    })
+  })
+}
 
 app.on('before-quit', () => {
   quitting = true

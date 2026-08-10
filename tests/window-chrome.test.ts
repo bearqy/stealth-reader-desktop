@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { windowChromeOptions, windowsTitleBarOverlay } from '../src/main/window-chrome'
+import {
+  shouldHideWindowOnClose,
+  windowChromeOptions,
+  windowsTitleBarOverlay
+} from '../src/main/window-chrome'
 
 describe('window chrome', () => {
   it('uses a transparent Windows surface while preserving the title bar controls', () => {
@@ -28,5 +32,14 @@ describe('window chrome', () => {
       titleBarOverlay: false,
       autoHideMenuBar: false
     })
+  })
+
+  it('allows Windows close requests to terminate the application', () => {
+    expect(shouldHideWindowOnClose('win32', false)).toBe(false)
+  })
+
+  it('only converts a normal macOS close request into a hide action', () => {
+    expect(shouldHideWindowOnClose('darwin', false)).toBe(true)
+    expect(shouldHideWindowOnClose('darwin', true)).toBe(false)
   })
 })

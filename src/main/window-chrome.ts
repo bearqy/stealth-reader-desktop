@@ -37,3 +37,10 @@ export function windowChromeOptions(
     autoHideMenuBar: platform === 'win32'
   }
 }
+
+export function shouldHideWindowOnClose(
+  platform: NodeJS.Platform,
+  quitting: boolean
+): boolean {
+  return platform === 'darwin' && !quitting
+}
