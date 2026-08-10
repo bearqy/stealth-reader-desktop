@@ -17,6 +17,7 @@ import { BrowserManager } from './browser-manager'
 import { StateStore } from './state-store'
 import { readTextFile } from './text-reader'
 import { isTrustedRendererNavigation } from './url-policy'
+import { windowChromeOptions, windowsTitleBarOverlay } from './window-chrome'
 import { resolveWindowOpacity } from './window-visibility'
 
 let mainWindow: BrowserWindow | null = null
@@ -149,6 +150,9 @@ function applyWindowSettings(settings: AppSettings): void {
     mainWindow.setHasShadow(!settings.transparentAppChrome)
     mainWindow.setWindowButtonVisibility(!settings.transparentAppChrome)
   }
+  if (process.platform === 'win32') {
+    mainWindow.setTitleBarOverlay(windowsTitleBarOverlay(settings.transparentAppChrome))
+  }
   updatePointerVisibilityTracking(settings)
   refreshWindowOpacity(settings)
 }
@@ -163,9 +167,7 @@ async function createWindow(): Promise<void> {
     minWidth: 760,
     minHeight: 500,
     show: false,
-    transparent: process.platform === 'darwin',
-    backgroundColor: process.platform === 'darwin' ? '#00000000' : '#edf1ec',
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    ...windowChromeOptions(process.platform, settings.transparentAppChrome),
     title: 'Stealth Reader',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -174,6 +176,10 @@ async function createWindow(): Promise<void> {
       sandbox: true
     }
   })
+
+  if (process.platform === 'win32') {
+    mainWindow.setMenu(null)
+  }
 
   applyWindowSettings(settings)
   browserManager = new BrowserManager(
