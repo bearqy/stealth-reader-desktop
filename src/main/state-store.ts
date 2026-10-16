@@ -30,7 +30,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   toolbarCollapsed: false,
   readerFontSize: 18,
   readerLineHeight: 1.9,
-  readerTheme: 'paper'
+  readerTheme: 'paper',
+  checkUpdatesOnLaunch: true
 }
 
 function defaultState(): PersistedState {
@@ -72,7 +73,10 @@ function clampSettings(settings: StoredSettings): AppSettings {
     readerTheme:
       settings.readerTheme === 'green' || settings.readerTheme === 'dark'
         ? settings.readerTheme
-        : 'paper'
+        : 'paper',
+    checkUpdatesOnLaunch: settings.checkUpdatesOnLaunch === undefined
+      ? true
+      : Boolean(settings.checkUpdatesOnLaunch)
   }
 }
 

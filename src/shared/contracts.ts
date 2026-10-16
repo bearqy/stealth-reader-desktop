@@ -13,6 +13,29 @@ export interface AppSettings {
   readerFontSize: number
   readerLineHeight: number
   readerTheme: 'paper' | 'green' | 'dark'
+  checkUpdatesOnLaunch: boolean
+}
+
+export interface UpdateRelease {
+  version: string
+  title: string
+  notes: string
+  publishedAt: string | null
+  assetName: string | null
+  size: number | null
+}
+
+export interface UpdateState {
+  status: 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'unsupported' | 'error'
+  currentVersion: string
+  system: string
+  architecture: string
+  packageType: 'dmg' | 'nsis' | 'portable' | null
+  canInstall: boolean
+  latest: UpdateRelease | null
+  checkedAt: string | null
+  progress: { received: number; total: number; percent: number } | null
+  message: string
 }
 
 export interface LibraryItem {
@@ -48,6 +71,7 @@ export interface BootstrapState {
   settings: AppSettings
   library: LibraryItem[]
   browser: BrowserState
+  updates: UpdateState
 }
 
 export interface BrowserBounds {
@@ -66,6 +90,15 @@ export interface StealthReaderApi {
   window: {
     hide(): Promise<void>
     minimize(): Promise<void>
+  }
+  updates: {
+    check(): Promise<UpdateState>
+    download(): Promise<UpdateState>
+    cancel(): Promise<UpdateState>
+    install(): Promise<UpdateState>
+    openRelease(): Promise<void>
+    onState(listener: (state: UpdateState) => void): () => void
+    onShow(listener: () => void): () => void
   }
   browser: {
     create(url?: string): Promise<BrowserState>
@@ -92,6 +125,13 @@ export const IPC = {
   settingsUpdate: 'settings:update',
   windowHide: 'window:hide',
   windowMinimize: 'window:minimize',
+  updatesCheck: 'updates:check',
+  updatesDownload: 'updates:download',
+  updatesCancel: 'updates:cancel',
+  updatesInstall: 'updates:install',
+  updatesOpenRelease: 'updates:open-release',
+  updatesState: 'updates:state',
+  updatesShow: 'updates:show',
   browserCreate: 'browser:create',
   browserClose: 'browser:close',
   browserActivate: 'browser:activate',

@@ -1,6 +1,6 @@
 {
   "name": "stealth-reader-desktop",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Local-first desktop web browser and reader for macOS and Windows",
   "main": "./out/main/index.js",
@@ -46,6 +46,7 @@
       "output": "release"
     },
     "mac": {
+      "artifactName": "Stealth-Reader-${version}-${arch}.${ext}",
       "category": "public.app-category.productivity",
       "target": [
         {
@@ -64,8 +65,12 @@
       ]
     },
     "nsis": {
+      "artifactName": "Stealth-Reader-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "portable": {
+      "artifactName": "Stealth-Reader-Portable-${version}-${arch}.${ext}"
     }
   },
   "allowScripts": {
