@@ -1,3 +1,5 @@
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   isAllowedNavigation,
@@ -76,18 +78,21 @@ describe('isTrustedRendererNavigation', () => {
   })
 
   it('allows only the configured production file', () => {
+    const productionFile = resolve('test fixtures/阅读器/out/renderer/index.html')
+    const target = pathToFileURL(productionFile)
+    target.hash = 'reader'
     expect(
       isTrustedRendererNavigation(
-        'file:///Applications/Stealth/out/renderer/index.html#reader',
+        target.href,
         undefined,
-        '/Applications/Stealth/out/renderer/index.html'
+        productionFile
       )
     ).toBe(true)
     expect(
       isTrustedRendererNavigation(
-        'file:///Applications/Stealth/other.html',
+        pathToFileURL(resolve('test fixtures/阅读器/other.html')).href,
         undefined,
-        '/Applications/Stealth/out/renderer/index.html'
+        productionFile
       )
     ).toBe(false)
   })
