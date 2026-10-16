@@ -163,6 +163,7 @@ export function App(): React.JSX.Element {
   const [showSettings, setShowSettings] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const browserSurfaceRef = useRef<HTMLDivElement>(null)
+  const removedBooksRef = useRef(new Set<string>())
 
   const showUpdates = useCallback(() => {
     setShowSettings(true)
@@ -277,6 +278,7 @@ export function App(): React.JSX.Element {
     try {
       const imported = await window.stealthReader.library.importText()
       if (!imported) return
+      removedBooksRef.current.delete(imported.item.id)
       setDocument(imported)
       setLibrary((current) => [
         imported.item,
@@ -305,16 +307,20 @@ export function App(): React.JSX.Element {
   }
 
   const removeBook = async (itemId: string): Promise<void> => {
+    removedBooksRef.current.add(itemId)
     try {
       const next = await window.stealthReader.library.remove(itemId)
       setLibrary(next)
       if (document?.item.id === itemId) setDocument(null)
     } catch (error) {
+      removedBooksRef.current.delete(itemId)
       reportError(error)
     }
   }
 
   const saveProgress = useCallback((itemId: string, progress: number, position: ReaderPosition): void => {
+    // A removed reader also unmounts; do not flush its pending bookmark back to the store.
+    if (removedBooksRef.current.has(itemId)) return
     // Keep the open book in sync too: returning from settings or the browser remounts ReaderView.
     setDocument((current) => current?.item.id === itemId
       ? { ...current, item: { ...current.item, progress, readerPosition: position } }
@@ -902,7 +908,7 @@ export function App(): React.JSX.Element {
             <div className="empty-icon"><Icon name="book" size={30} /></div>
             <p className="eyebrow">本地阅读</p>
             <h2>选择一本书，安静读一会儿</h2>
-            <p>导入 TXT 后自动识别卷与章节，像在线小说一样翻页阅读。</p>
+            <p>导入 TXT 后自动识别卷与章节，章内滚动阅读，翻页切换章节。</p>
           </div>
         )}
       </main>

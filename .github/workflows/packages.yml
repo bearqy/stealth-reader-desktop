@@ -53,6 +53,8 @@ jobs:
         run: npm ci
       - name: Test
         run: npm test
+      - name: Test native chapter reader interactions
+        run: npm run test:reader
       - name: Build application
         run: npm run build
       - name: Package installers

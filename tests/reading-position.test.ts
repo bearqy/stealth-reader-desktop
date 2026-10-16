@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseTextBook } from '../src/shared/text-chapters'
-import { readingPageCount, readingProgress, resolveReadingPosition, validReaderPosition } from '../src/shared/reading-position'
+import { chapterScrollRatio, readingProgress, resolveReadingPosition, validReaderPosition } from '../src/shared/reading-position'
 
 const content = '第一卷 起点\n第一章 初识\n' + '甲'.repeat(500) + '\n第二章 重逢\n' + '乙'.repeat(500)
 const { chapters } = parseTextBook(content)
@@ -30,19 +30,28 @@ describe('chapter reading positions', () => {
       { chapterStart: 0, chapterProgress: NaN }, { chapterStart: 0, chapterProgress: 2 }]) expect(validReaderPosition(value)).toBe(false)
   })
 
-  it('counts horizontal column pages without rounding up to a phantom page', () => {
-    expect(readingPageCount(600, 600, 48)).toBe(1)
-    expect(readingPageCount(600, 1248, 48)).toBe(2)
-    expect(readingPageCount(600, 1249, 48)).toBe(2)
-    expect(readingPageCount(600, 1896, 48)).toBe(3)
-    expect(readingPageCount(0, 0, 48)).toBe(1)
+  it('tracks vertical chapter scrolling and clamps overscroll at both ends', () => {
+    expect(chapterScrollRatio(0, 1600, 600)).toBe(0)
+    expect(chapterScrollRatio(500, 1600, 600)).toBe(0.5)
+    expect(chapterScrollRatio(1000, 1600, 600)).toBe(1)
+    expect(chapterScrollRatio(-20, 1600, 600)).toBe(0)
+    expect(chapterScrollRatio(1020, 1600, 600)).toBe(1)
   })
 
-  it('records overall progress monotonically and reaches the final page', () => {
-    const first = Array.from({ length: 4 }, (_, page) => readingProgress(chapters[0], content.length, page, 4))
-    const second = Array.from({ length: 4 }, (_, page) => readingProgress(chapters[1], content.length, page, 4))
+  it('treats a fully visible short chapter as read without a phantom scrollbar', () => {
+    expect(chapterScrollRatio(0, 600, 600)).toBe(1)
+    expect(chapterScrollRatio(0, 400, 600)).toBe(1)
+  })
+
+  it('records overall progress continuously and reaches the end of the final chapter', () => {
+    const first = Array.from({ length: 5 }, (_, step) => readingProgress(chapters[0], content.length, step / 4))
+    const second = Array.from({ length: 5 }, (_, step) => readingProgress(chapters[1], content.length, step / 4))
     const all = [...first, ...second]
     expect(all).toEqual([...all].sort((a, b) => a - b))
     expect(all.at(-1)).toBe(1)
+    expect(readingProgress(chapters[1], content.length, 0)).toBeCloseTo(chapters[1].start / content.length)
+    expect(readingProgress(chapters[1], content.length, NaN)).toBe(readingProgress(chapters[1], content.length, 0))
+    expect(readingProgress(chapters[1], content.length, 5)).toBe(1)
+    expect(readingProgress(chapters[0], 0, 1)).toBe(0)
   })
 })

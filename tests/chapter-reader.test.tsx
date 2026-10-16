@@ -27,8 +27,22 @@ it('renders only the current chapter instead of a full-book scrolling document',
   expect(html).toContain('只属于第一章的正文')
   expect(html).not.toContain('只属于第二章的正文')
   expect(html.match(/data-chapter-id=/g)).toHaveLength(1)
-  expect(html).toContain('reader-page-viewport')
+  expect(html).toContain('reader-chapter-scroll')
+  expect(html).not.toContain('reader-pages')
+  expect(html).not.toContain('上一页')
+  expect(html).not.toContain('下一页')
+  expect(html).toContain('章内上下滚动')
   expect(html).toContain('2 卷')
+})
+
+it('uses chapter navigation at both ends with no intra-chapter page counter', () => {
+  const html = render()
+  expect(html).toContain('aria-label="章节翻页"')
+  expect(html).toContain('第 1 / 2 章')
+  expect(html).toContain('disabled="">上一章')
+  const last = render({ chapterStart: chapters[1]!.start, chapterProgress: 0.5 })
+  expect(last).toContain('disabled="">全书完')
+  expect(last).toContain('本章 50%')
 })
 
 it('renders the restored chapter and escapes imported text rather than executing HTML', () => {
