@@ -38,11 +38,17 @@ export interface UpdateState {
   message: string
 }
 
+export interface ReaderPosition {
+  chapterStart: number
+  chapterProgress: number
+}
+
 export interface LibraryItem {
   id: string
   title: string
   fileName: string
   progress: number
+  readerPosition?: ReaderPosition
   lastOpenedAt: string
 }
 
@@ -115,7 +121,7 @@ export interface StealthReaderApi {
   library: {
     importText(): Promise<TextDocument | null>
     open(itemId: string): Promise<TextDocument>
-    updateProgress(itemId: string, progress: number): Promise<LibraryItem[]>
+    updateProgress(itemId: string, progress: number, position?: ReaderPosition): Promise<LibraryItem[]>
     remove(itemId: string): Promise<LibraryItem[]>
   }
 }

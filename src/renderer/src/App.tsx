@@ -12,11 +12,12 @@ import type {
   AppSettings,
   BrowserState,
   LibraryItem,
+  ReaderPosition,
   TextDocument,
   UpdateState
 } from '../../shared/contracts'
 import { DEFAULT_READING_SITES } from '../../shared/default-sites'
-import { parseTextChapters } from '../../shared/text-chapters'
+import { ChapterReader } from './ChapterReader'
 import { UpdatePanel } from './UpdatePanel'
 
 type IconName =
@@ -148,227 +149,6 @@ function IconButton({
   )
 }
 
-interface MatchPart {
-  text: string
-  match: boolean
-  index?: number
-  start: number
-  end: number
-}
-
-function buildHighlightedParts(content: string, query: string): MatchPart[] {
-  const term = query.trim().toLocaleLowerCase()
-  if (!term) return [{ text: content, match: false, start: 0, end: content.length }]
-
-  const lower = content.toLocaleLowerCase()
-  const parts: MatchPart[] = []
-  let cursor = 0
-  let matchIndex = 0
-  while (matchIndex < 300) {
-    const found = lower.indexOf(term, cursor)
-    if (found < 0) break
-    if (found > cursor) {
-      parts.push({ text: content.slice(cursor, found), match: false, start: cursor, end: found })
-    }
-    parts.push({
-      text: content.slice(found, found + term.length),
-      match: true,
-      index: matchIndex,
-      start: found,
-      end: found + term.length
-    })
-    cursor = found + term.length
-    matchIndex += 1
-  }
-  if (cursor < content.length) {
-    parts.push({ text: content.slice(cursor), match: false, start: cursor, end: content.length })
-  }
-  return parts
-}
-
-function ReaderView({
-  document,
-  settings,
-  searchQuery,
-  onProgress
-}: {
-  document: TextDocument | null
-  settings: AppSettings
-  searchQuery: string
-  onProgress: (itemId: string, progress: number) => void
-}): React.JSX.Element {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const saveTimerRef = useRef<number | null>(null)
-  const pendingProgressRef = useRef<number | null>(null)
-  const chapterElementsRef = useRef<Array<HTMLElement | null>>([])
-  const [directoryOpen, setDirectoryOpen] = useState(false)
-  const [activeChapter, setActiveChapter] = useState(0)
-  const chapters = useMemo(() => parseTextChapters(document?.content ?? ''), [document?.content])
-  const parts = useMemo(
-    () => buildHighlightedParts(document?.content ?? '', searchQuery),
-    [document?.content, searchQuery]
-  )
-
-  const updateActiveChapter = useCallback((): void => {
-    const scroll = scrollRef.current
-    if (!scroll) return
-    const top = scroll.getBoundingClientRect().top + 56
-    let low = 0
-    let high = chapters.length - 1
-    while (low < high) {
-      const middle = Math.ceil((low + high) / 2)
-      const element = chapterElementsRef.current[middle]
-      if (element && element.getBoundingClientRect().top <= top) low = middle
-      else high = middle - 1
-    }
-    setActiveChapter(low)
-  }, [chapters])
-
-  useEffect(() => {
-    const scroll = scrollRef.current
-    if (!scroll || !document) return
-    setDirectoryOpen(false)
-    setActiveChapter(0)
-    pendingProgressRef.current = null
-    const frame = requestAnimationFrame(() => {
-      const max = Math.max(0, scroll.scrollHeight - scroll.clientHeight)
-      scroll.scrollTop = max * document.item.progress
-      updateActiveChapter()
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [document?.item.id])
-
-  useEffect(() => {
-    const itemId = document?.item.id
-    return () => {
-      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
-      if (itemId && pendingProgressRef.current !== null) {
-        onProgress(itemId, pendingProgressRef.current)
-        pendingProgressRef.current = null
-      }
-    }
-  }, [document?.item.id, onProgress])
-
-  const handleScroll = (): void => {
-    const scroll = scrollRef.current
-    if (!scroll || !document) return
-    updateActiveChapter()
-    const max = scroll.scrollHeight - scroll.clientHeight
-    const progress = max > 0 ? scroll.scrollTop / max : 0
-    const itemId = document.item.id
-    pendingProgressRef.current = progress
-    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = window.setTimeout(() => {
-      onProgress(itemId, progress)
-      pendingProgressRef.current = null
-    }, 450)
-  }
-
-  const jumpToChapter = (index: number): void => {
-    const scroll = scrollRef.current
-    const element = chapterElementsRef.current[index]
-    if (!scroll || !element) return
-    scroll.scrollTop += element.getBoundingClientRect().top - scroll.getBoundingClientRect().top - 24
-    setActiveChapter(index)
-    setDirectoryOpen(false)
-    handleScroll()
-  }
-
-  const renderRange = (start: number, end: number): ReactNode =>
-    parts.filter((part) => part.start < end && part.end > start).map((part) => {
-      const text = part.text.slice(Math.max(0, start - part.start), Math.min(part.text.length, end - part.start))
-      return part.match ? (
-        <mark key={part.start} id={`match-${part.index}`}>{text}</mark>
-      ) : text
-    })
-
-  if (!document) {
-    return (
-      <div className="empty-state">
-        <div className="empty-icon">
-          <Icon name="book" size={30} />
-        </div>
-        <p className="eyebrow">本地阅读</p>
-        <h2>选择一本书，安静读一会儿</h2>
-        <p>导入 TXT 后，内容和进度都只保存在这台电脑。</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="reader-layout">
-      <div className="reader-chapter-controls">
-        <button
-          aria-controls="reader-directory"
-          aria-expanded={directoryOpen}
-          className="chapter-directory-toggle"
-          type="button"
-          onClick={() => setDirectoryOpen((value) => !value)}
-        >
-          <Icon name="list" size={16} />
-          目录 <span>{chapters.length}</span>
-        </button>
-        <span className="current-chapter" title={chapters[activeChapter]?.title}>
-          {chapters[activeChapter]?.title}
-        </span>
-        <IconButton icon="arrow-left" label="上一章" disabled={activeChapter === 0}
-          onClick={() => jumpToChapter(activeChapter - 1)} />
-        <IconButton icon="arrow-right" label="下一章" disabled={activeChapter >= chapters.length - 1}
-          onClick={() => jumpToChapter(activeChapter + 1)} />
-      </div>
-      {directoryOpen && (
-        <nav className="reader-directory" id="reader-directory" aria-label="章节目录"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') setDirectoryOpen(false)
-          }}>
-          <div className="directory-heading">
-            <strong>章节目录 · {chapters.length}</strong>
-            <IconButton icon="x" label="关闭目录" onClick={() => setDirectoryOpen(false)} />
-          </div>
-          {chapters.length === 1 && chapters[0]?.bodyStart === 0 && (
-            <p className="directory-hint">未识别到章节标题，按全文阅读。</p>
-          )}
-          <div className="chapter-list">
-            {chapters.map((chapter, index) => (
-              <button key={chapter.id} type="button" title={chapter.title}
-                aria-current={index === activeChapter ? 'location' : undefined}
-                onClick={() => jumpToChapter(index)}>
-                {chapter.title}
-              </button>
-            ))}
-          </div>
-        </nav>
-      )}
-      <div
-        ref={scrollRef}
-        className={`reader-scroll theme-${settings.readerTheme}`}
-        onScroll={handleScroll}
-      >
-        <article
-          className="reader-page"
-          style={{
-            fontSize: `${settings.readerFontSize}px`,
-            lineHeight: settings.readerLineHeight
-          }}
-        >
-          <header className="reader-title">
-            <span>{document.encoding}</span>
-            <h1>{document.item.title}</h1>
-          </header>
-          {chapters.map((chapter, index) => (
-            <section className="reader-chapter" key={chapter.id} data-chapter-id={chapter.id}
-              ref={(element) => { chapterElementsRef.current[index] = element }}>
-              {chapter.bodyStart > chapter.start && (
-                <h2>{renderRange(chapter.start, chapter.bodyStart)}</h2>
-              )}
-              <div className="reader-text">{renderRange(chapter.bodyStart, chapter.end)}</div>
-            </section>
-          ))}
-        </article>
-      </div>
-    </div>
-  )
-}
 
 export function App(): React.JSX.Element {
   const [loading, setLoading] = useState(true)
@@ -534,13 +314,13 @@ export function App(): React.JSX.Element {
     }
   }
 
-  const saveProgress = useCallback((itemId: string, progress: number): void => {
+  const saveProgress = useCallback((itemId: string, progress: number, position: ReaderPosition): void => {
     // Keep the open book in sync too: returning from settings or the browser remounts ReaderView.
     setDocument((current) => current?.item.id === itemId
-      ? { ...current, item: { ...current.item, progress } }
+      ? { ...current, item: { ...current.item, progress, readerPosition: position } }
       : current)
     void window.stealthReader.library
-      .updateProgress(itemId, progress)
+      .updateProgress(itemId, progress, position)
       .then(setLibrary)
       .catch((error: unknown) =>
         setNotice(error instanceof Error ? error.message : String(error))
@@ -863,7 +643,7 @@ export function App(): React.JSX.Element {
               <label className="reader-search">
                 <Icon name="search" size={16} />
                 <input
-                  placeholder="在当前文档中搜索"
+                  placeholder="在全书中搜索"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
@@ -1112,12 +892,18 @@ export function App(): React.JSX.Element {
             )}
           </section>
         ) : (
-          <ReaderView
+          document ? <ChapterReader
+            key={`${document.item.id}:${document.item.lastOpenedAt}`}
             document={document}
             searchQuery={searchQuery}
             settings={settings}
             onProgress={saveProgress}
-          />
+          /> : <div className="empty-state">
+            <div className="empty-icon"><Icon name="book" size={30} /></div>
+            <p className="eyebrow">本地阅读</p>
+            <h2>选择一本书，安静读一会儿</h2>
+            <p>导入 TXT 后自动识别卷与章节，像在线小说一样翻页阅读。</p>
+          </div>
         )}
       </main>
 

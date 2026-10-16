@@ -6,6 +6,7 @@ import type {
   BrowserState,
   StealthReaderApi,
   TextDocument,
+  ReaderPosition,
   UpdateState
 } from '../shared/contracts'
 import { IPC } from '../shared/contracts'
@@ -65,8 +66,8 @@ const api: StealthReaderApi = {
       ipcRenderer.invoke(IPC.libraryImportText) as Promise<TextDocument | null>,
     open: (itemId: string) =>
       ipcRenderer.invoke(IPC.libraryOpen, itemId) as Promise<TextDocument>,
-    updateProgress: (itemId: string, progress: number) =>
-      ipcRenderer.invoke(IPC.libraryUpdateProgress, itemId, progress),
+    updateProgress: (itemId: string, progress: number, position?: ReaderPosition) =>
+      ipcRenderer.invoke(IPC.libraryUpdateProgress, itemId, progress, position),
     remove: (itemId: string) => ipcRenderer.invoke(IPC.libraryRemove, itemId)
   }
 }

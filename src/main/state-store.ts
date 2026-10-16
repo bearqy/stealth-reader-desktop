@@ -1,14 +1,15 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { basename, dirname, normalize } from 'node:path'
-import type { AppSettings, LibraryItem } from '../shared/contracts'
+import type { AppSettings, LibraryItem, ReaderPosition } from '../shared/contracts'
+import { validReaderPosition } from '../shared/reading-position'
 
 interface StoredLibraryItem extends LibraryItem {
   filePath: string
 }
 
 interface PersistedState {
-  version: 1
+  version: 2
   settings: AppSettings
   library: StoredLibraryItem[]
 }
@@ -36,7 +37,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 function defaultState(): PersistedState {
   return {
-    version: 1,
+    version: 2,
     settings: { ...DEFAULT_SETTINGS },
     library: []
   }
@@ -90,7 +91,7 @@ export class StateStore {
     try {
       const raw = JSON.parse(await readFile(this.filePath, 'utf8')) as Partial<PersistedState>
       this.state = {
-        version: 1,
+        version: 2,
         settings: clampSettings(raw.settings ?? {}),
         library: Array.isArray(raw.library)
           ? raw.library.filter(
@@ -101,7 +102,10 @@ export class StateStore {
                 typeof item?.filePath === 'string' &&
                 typeof item?.progress === 'number' &&
                 typeof item?.lastOpenedAt === 'string'
-            )
+            ).map((item) => {
+              const { readerPosition, ...rest } = item
+              return validReaderPosition(readerPosition) ? { ...rest, readerPosition: { ...readerPosition } } : rest
+            })
           : []
       }
     } catch {
@@ -121,7 +125,8 @@ export class StateStore {
 
   getLibrary(): LibraryItem[] {
     return this.state.library
-      .map(({ filePath: _filePath, ...item }) => ({ ...item }))
+      .map(({ filePath: _filePath, ...item }) => ({ ...item,
+        ...(item.readerPosition ? { readerPosition: { ...item.readerPosition } } : {}) }))
       .sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))
   }
 
@@ -172,7 +177,7 @@ export class StateStore {
     return { ...publicItem }
   }
 
-  async updateProgress(id: string, progress: number): Promise<LibraryItem[]> {
+  async updateProgress(id: string, progress: number, position?: ReaderPosition): Promise<LibraryItem[]> {
     const item = this.state.library.find((candidate) => candidate.id === id)
     if (!item) {
       throw new Error('书籍不存在或已被移除')
@@ -180,7 +185,9 @@ export class StateStore {
     if (!Number.isFinite(progress)) {
       throw new Error('阅读进度无效')
     }
+    if (position !== undefined && !validReaderPosition(position)) throw new Error('章节阅读位置无效')
     item.progress = Math.min(1, Math.max(0, progress))
+    if (position) item.readerPosition = { ...position }
     item.lastOpenedAt = new Date().toISOString()
     await this.persist()
     return this.getLibrary()
