@@ -1,4 +1,5 @@
 export type AppMode = 'browser' | 'reader'
+export type ReaderFontFamily = 'sans' | 'serif' | 'kai'
 
 export interface AppSettings {
   alwaysOnTop: boolean
@@ -11,6 +12,8 @@ export interface AppSettings {
   bossShortcut: string
   toolbarCollapsed: boolean
   readerFontSize: number
+  readerFontFamily: ReaderFontFamily
+  readerLetterSpacing: number
   readerLineHeight: number
   readerTheme: 'paper' | 'green' | 'dark'
   checkUpdatesOnLaunch: boolean

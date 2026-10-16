@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { basename, dirname, normalize } from 'node:path'
 import type { AppSettings, LibraryItem, ReaderPosition } from '../shared/contracts'
 import { validReaderPosition } from '../shared/reading-position'
+import { DEFAULT_READER_TYPOGRAPHY, readerFontFamily, readerLetterSpacing } from '../shared/reader-typography'
 
 interface StoredLibraryItem extends LibraryItem {
   filePath: string
@@ -29,8 +30,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   transparentAppChrome: false,
   bossShortcut: 'CommandOrControl+Shift+H',
   toolbarCollapsed: false,
-  readerFontSize: 18,
-  readerLineHeight: 1.9,
+  ...DEFAULT_READER_TYPOGRAPHY,
   readerTheme: 'paper',
   checkUpdatesOnLaunch: true
 }
@@ -67,6 +67,8 @@ function clampSettings(settings: StoredSettings): AppSettings {
       34,
       Math.max(12, Number(settings.readerFontSize) || DEFAULT_SETTINGS.readerFontSize)
     ),
+    readerFontFamily: readerFontFamily(settings.readerFontFamily),
+    readerLetterSpacing: readerLetterSpacing(settings.readerLetterSpacing),
     readerLineHeight: Math.min(
       2.8,
       Math.max(1.2, Number(settings.readerLineHeight) || DEFAULT_SETTINGS.readerLineHeight)

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { AppSettings, ReaderPosition, TextDocument } from '../../shared/contracts'
 import { parseTextBook } from '../../shared/text-chapters'
 import { chapterScrollRatio, readingProgress, resolveReadingPosition } from '../../shared/reading-position'
+import { readerTypographyStyle } from '../../shared/reader-typography'
 
 function highlightText(text: string, term: string): React.ReactNode {
   if (!term) return text
@@ -140,6 +141,7 @@ export function ChapterReader({ document, settings, searchQuery, onProgress }: {
     void window.document.fonts.ready.then(schedule)
     return () => { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); measureRef.current = null }
   }, [chapter.id, chapterIndex, term, settings.readerFontSize, settings.readerLineHeight,
+    settings.readerFontFamily, settings.readerLetterSpacing,
     settings.transparentAppChrome, settings.textOnlyWeb, recordPosition])
   const groups = useMemo(() => {
     const groups = [
@@ -201,7 +203,7 @@ export function ChapterReader({ document, settings, searchQuery, onProgress }: {
             || previous.scrollHeight !== element.scrollHeight)) measureRef.current?.()
           else recordPosition()
         }} onClick={() => viewport.current?.focus({ preventScroll: true })}>
-        <article className="reader-page" ref={article} style={{ fontSize: `${settings.readerFontSize}px`, lineHeight: settings.readerLineHeight }}>
+        <article className="reader-page" ref={article} style={readerTypographyStyle(settings)}>
           <header className="reader-book-label">{document.item.title}<span>第 {chapterIndex + 1} / {book.chapters.length} 章</span></header>
           <section className="reader-chapter" data-chapter-id={chapter.id}>
             {volume && <p className="reader-volume-title">{highlighted.volume}</p>}

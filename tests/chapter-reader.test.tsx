@@ -11,7 +11,8 @@ const settings: AppSettings = {
   alwaysOnTop: false, opacity: 1, hideWhenPointerLeaves: false, sidebarHidden: false,
   hideWebMedia: false, textOnlyWeb: false, transparentAppChrome: false,
   bossShortcut: 'CommandOrControl+Shift+H', toolbarCollapsed: false,
-  readerFontSize: 18, readerLineHeight: 1.9, readerTheme: 'paper', checkUpdatesOnLaunch: false
+  readerFontSize: 20, readerFontFamily: 'sans', readerLetterSpacing: 0.04,
+  readerLineHeight: 2, readerTheme: 'paper', checkUpdatesOnLaunch: false
 }
 function render(position?: ReaderPosition, searchQuery = ''): string {
   return renderToStaticMarkup(createElement(ChapterReader, {
@@ -57,4 +58,13 @@ it('highlights search matches within the current chapter', () => {
   expect(render(undefined, '第一章的正文')).toContain('<mark>第一章的正文</mark>')
   expect(render(undefined, '初见')).toContain('<mark>初见</mark>')
   expect(render(undefined, '起点')).toContain('<mark>起点</mark>')
+})
+
+it('applies the comfortable font and letter spacing to the reader', () => {
+  const html = render()
+  expect(html).toContain('PingFang SC')
+  expect(html).toContain('Microsoft YaHei')
+  expect(html).toContain('font-size:20px')
+  expect(html).toContain('letter-spacing:0.04em')
+  expect(html).toContain('line-height:2')
 })

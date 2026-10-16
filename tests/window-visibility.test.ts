@@ -13,6 +13,8 @@ const settings: AppSettings = {
   bossShortcut: 'CommandOrControl+Shift+H',
   toolbarCollapsed: false,
   readerFontSize: 18,
+  readerFontFamily: 'sans',
+  readerLetterSpacing: 0.04,
   readerLineHeight: 1.9,
   readerTheme: 'paper',
   checkUpdatesOnLaunch: true
