@@ -126,7 +126,13 @@ export function selectReleaseAsset(release: ParsedRelease, target: UpdateTarget)
   if (!type) return null
   const stem = type === 'dmg' ? 'Stealth-Reader' : type === 'nsis' ? 'Stealth-Reader-Setup' : 'Stealth-Reader-Portable'
   const extension = type === 'dmg' ? 'dmg' : 'exe'
-  const names = [`${stem}-${release.version}-${target.arch}.${extension}`]
+  const canonical = (arch: string): string => type === 'dmg'
+    ? `StealthReader-${release.version}-macos-${arch}.dmg`
+    : `StealthReader-${release.version}-windows-${arch}-${type === 'nsis' ? 'setup' : 'portable'}.exe`
+  const names = [canonical(target.arch)]
+  if (type === 'dmg') names.push(canonical('universal'))
+  // Accept historical names as well; future releases include aliases for the original 0.1.2 updater.
+  names.push(`${stem}-${release.version}-${target.arch}.${extension}`)
   if (type === 'dmg') names.push(`${stem}-${release.version}-universal.${extension}`)
   for (const name of names) {
     const asset = release.assets.find((candidate) => candidate.name.toLowerCase() === name.toLowerCase())
