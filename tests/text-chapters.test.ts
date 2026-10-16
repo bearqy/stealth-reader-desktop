@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseTextChapters } from '../src/shared/text-chapters'
+import { parseTextBook, parseTextChapters } from '../src/shared/text-chapters'
 
 describe('parseTextChapters', () => {
   it('recognizes Chinese chapter, volume and section headings with different numbers', () => {
@@ -59,5 +59,58 @@ describe('parseTextChapters', () => {
     const chapters = parseTextChapters(content)
     expect(chapters).toHaveLength(2000)
     expect(chapters.map((chapter) => content.slice(chapter.start, chapter.end)).join('')).toBe(content)
+  })
+})
+
+describe('parseTextBook', () => {
+  it('groups chapters under volumes without adding blank volume pages', () => {
+    const text = '书籍说明\n第一卷 初来\n\n第一章 风起\n甲\n第二章 相逢\n乙\n第二卷 远行\n第三章 出发\n丙'
+    const book = parseTextBook(text)
+    expect(book.volumes.map((volume) => volume.title)).toEqual(['第一卷 初来', '第二卷 远行'])
+    expect(book.chapters.map((chapter) => chapter.title)).toEqual(['正文前言', '第一章 风起', '第二章 相逢', '第三章 出发'])
+    expect(book.chapters.map((chapter) => chapter.volumeId)).toEqual([null, book.volumes[0].id, book.volumes[0].id, book.volumes[1].id])
+    expect(book.chapters.map((chapter) => text.slice(chapter.start, chapter.end)).join('')).toBe(text)
+  })
+
+  it('keeps volume introductions as readable pages and recognizes volume-first and English headings', () => {
+    const text = '卷一 风雨\r\n卷首说明\r\n第一章 启程\r\n甲\r\nVolume II: Home\r\nChapter 2: Return\r\nEnd'
+    const book = parseTextBook(text)
+    expect(book.volumes.map((volume) => volume.title)).toEqual(['卷一 风雨', 'Volume II: Home'])
+    expect(book.chapters).toHaveLength(3)
+    expect(text.slice(book.chapters[0].bodyStart, book.chapters[0].end)).toContain('卷首说明')
+    expect(book.chapters.map((chapter) => text.slice(chapter.start, chapter.end)).join('')).toBe(text)
+  })
+
+  it('automatically segments unstructured text without dropping characters, CRLF or surrogate halves', () => {
+    for (const text of ['普通段落\r\n'.repeat(5000), '文'.repeat(5999) + '😀' + '字'.repeat(15000)]) {
+      const book = parseTextBook(text)
+      expect(book.chapters.length).toBeGreaterThan(2)
+      expect(book.chapters.every((chapter) => chapter.generated)).toBe(true)
+      expect(book.chapters.map((chapter) => text.slice(chapter.start, chapter.end)).join('')).toBe(text)
+      for (const chapter of book.chapters.slice(1)) {
+        expect(text[chapter.start]).not.toMatch(/[\uDC00-\uDFFF]/)
+        expect(text.slice(chapter.start - 1, chapter.start + 1)).not.toBe('\r\n')
+      }
+    }
+  })
+
+  it('preserves a final volume heading and all empty/short content', () => {
+    for (const text of ['', '第一卷 起点', '第一卷 起点\n第二卷 结尾', '短文本']) {
+      const book = parseTextBook(text)
+      expect(book.chapters.length).toBeGreaterThan(0)
+      expect(book.chapters.map((chapter) => text.slice(chapter.start, chapter.end)).join('')).toBe(text)
+    }
+  })
+
+  it('does not split a recognized long chapter into artificial chapters', () => {
+    const book = parseTextBook('第一章 正文\n' + '长章节正文。'.repeat(10000))
+    expect(book.chapters).toHaveLength(1)
+    expect(book.chapters[0].generated).toBe(false)
+  })
+
+  it('accepts a body prefix but does not treat sentences about volumes as volume covers', () => {
+    expect(parseTextBook('正文 第一章 初见\n正文\n正文 第二章 重逢\n结束').chapters.map((chapter) => chapter.title))
+      .toEqual(['第一章 初见', '第二章 重逢'])
+    expect(parseTextBook('第一卷的故事还没有结束\n普通正文').volumes).toEqual([])
   })
 })

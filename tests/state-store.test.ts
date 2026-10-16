@@ -198,4 +198,33 @@ describe('StateStore', () => {
     await expect(store.updateProgress(item.id, Number.NaN)).rejects.toThrow('阅读进度无效')
     expect(store.getLibrary()[0]?.progress).toBe(0)
   })
+
+  it('persists chapter-relative bookmarks and upgrades legacy state without losing progress', async () => {
+    const directory = await temporaryDirectory()
+    const file = join(directory, 'state.json')
+    const store = new StateStore(file)
+    await store.load()
+    const item = await store.addTextFile(join(directory, 'novel.txt'))
+    await store.updateProgress(item.id, 0.6, { chapterStart: 1234, chapterProgress: 0.4 })
+    const restored = new StateStore(file)
+    await restored.load()
+    expect(restored.getLibrary()[0]).toMatchObject({ progress: 0.6, readerPosition: { chapterStart: 1234, chapterProgress: 0.4 } })
+    const raw = JSON.parse(await readFile(file, 'utf8'))
+    expect(raw.version).toBe(2)
+    raw.version = 1
+    delete raw.library[0].readerPosition
+    await writeFile(file, JSON.stringify(raw))
+    const legacy = new StateStore(file)
+    await legacy.load()
+    expect(legacy.getLibrary()[0]).toMatchObject({ progress: 0.6 })
+  })
+
+  it('rejects invalid chapter bookmarks without changing the prior progress', async () => {
+    const directory = await temporaryDirectory()
+    const store = new StateStore(join(directory, 'state.json'))
+    await store.load()
+    const item = await store.addTextFile(join(directory, 'novel.txt'))
+    await expect(store.updateProgress(item.id, 0.8, { chapterStart: -1, chapterProgress: 0.2 })).rejects.toThrow('章节阅读位置无效')
+    expect(store.getLibrary()[0].progress).toBe(0)
+  })
 })

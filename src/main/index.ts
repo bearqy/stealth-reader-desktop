@@ -12,7 +12,7 @@ import {
   shell,
   Tray
 } from 'electron'
-import type { AppSettings, BrowserBounds } from '../shared/contracts'
+import type { AppSettings, BrowserBounds, ReaderPosition } from '../shared/contracts'
 import { IPC } from '../shared/contracts'
 import { BrowserManager } from './browser-manager'
 import { StateStore } from './state-store'
@@ -377,9 +377,9 @@ function registerIpc(): void {
   })
   ipcMain.handle(
     IPC.libraryUpdateProgress,
-    (event, itemId: string, progress: number) => {
+    (event, itemId: string, progress: number, position?: ReaderPosition) => {
       assertTrustedSender(event)
-      return stateStore.updateProgress(itemId, progress)
+      return stateStore.updateProgress(itemId, progress, position)
     }
   )
   ipcMain.handle(IPC.libraryRemove, (event, itemId: string) => {
