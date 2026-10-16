@@ -1,6 +1,6 @@
 // Exercise the actual React reader and native Chromium scrolling, not a mocked DOM.
 const assert = require('node:assert/strict')
-const { readFileSync, mkdtempSync } = require('node:fs')
+const { readFileSync, mkdtempSync, writeFileSync, mkdirSync } = require('node:fs')
 const { tmpdir } = require('node:os')
 const { resolve, join } = require('node:path')
 const { setTimeout: delay } = require('node:timers/promises')
@@ -14,6 +14,13 @@ app.whenReady().then(async () => {
   const window = new BrowserWindow({ width: 1000, height: 760, show: false,
     webPreferences: { backgroundThrottling: false, contextIsolation: true, nodeIntegration: false } })
   const evaluate = (code) => window.webContents.executeJavaScript(code)
+  const screenshot = async (name) => {
+    if (!process.env.READER_TEST_ARTIFACTS) return
+    const directory = resolve(process.env.READER_TEST_ARTIFACTS)
+    mkdirSync(directory, { recursive: true })
+    await delay(100)
+    writeFileSync(join(directory, name), (await window.webContents.capturePage()).toPNG())
+  }
   const until = async (expression) => {
     const deadline = Date.now() + 4000
     while (Date.now() < deadline) {
@@ -24,6 +31,8 @@ app.whenReady().then(async () => {
   }
   const read = () => evaluate(`(() => {
     const viewport = document.querySelector('.reader-chapter-scroll');
+    if (!viewport) return { settings: true, font: document.querySelector('#readerFontFamily')?.value,
+      spacing: document.querySelector('#readerLetterSpacing')?.value };
     return { top: viewport.scrollTop, range: viewport.scrollHeight - viewport.clientHeight,
       ratio: viewport.scrollTop / (viewport.scrollHeight - viewport.clientHeight),
       width: viewport.clientWidth, scrollWidth: viewport.scrollWidth,
@@ -50,9 +59,11 @@ app.whenReady().then(async () => {
     const bundle = buildSync({ bundle: true, write: false, platform: 'browser', format: 'iife',
       globalName: 'readerHarness', jsx: 'automatic', define: { 'process.env.NODE_ENV': '"test"' },
       stdin: { resolveDir: resolve(__dirname, '..'), loader: 'jsx', contents: `
-        import { createElement } from 'react';
+        import { createElement, useState } from 'react';
         import { createRoot } from 'react-dom/client';
         import { ChapterReader } from './src/renderer/src/ChapterReader';
+        import { ReaderTypographySettings } from './src/renderer/src/ReaderTypographySettings';
+        import { DEFAULT_READER_TYPOGRAPHY } from './src/shared/reader-typography';
         import { parseTextBook } from './src/shared/text-chapters';
         const content = '第一卷 起点\\n第一章 初见\\n' + '第一章完整正文。'.repeat(20).concat('\\n').repeat(100)
           + '本章结束标记\\n第二卷 重逢\\n第二章 归来\\n' + '重逢前段正文\\n'.repeat(160)
@@ -65,7 +76,16 @@ app.whenReady().then(async () => {
         const settings = { alwaysOnTop: false, opacity: 1, hideWhenPointerLeaves: false, sidebarHidden: false,
           hideWebMedia: false, textOnlyWeb: false, transparentAppChrome: false,
           bossShortcut: 'CommandOrControl+Shift+H', toolbarCollapsed: false,
-          readerFontSize: 18, readerLineHeight: 1.9, readerTheme: 'paper', checkUpdatesOnLaunch: false };
+          ...DEFAULT_READER_TYPOGRAPHY, readerTheme: 'paper', checkUpdatesOnLaunch: false };
+        export const settingsEvents = [];
+        function TypographySettingsHarness() {
+          const [current, setCurrent] = useState(settings);
+          return createElement('div', { className: 'settings-grid', style: { padding: 20, overflow: 'auto', width: '100%' } },
+            createElement(ReaderTypographySettings, { settings: current,
+              onPreview: (patch) => setCurrent(value => ({ ...value, ...patch })),
+              onSave: async (patch) => { settingsEvents.push(patch); setCurrent(value => ({ ...value, ...patch })); } }));
+        }
+        export function showTypographySettings() { root.render(createElement(TypographySettingsHarness)); }
         const onProgress = (id, progress, position) => events.push({ id, progress, position });
         export function update(patch = {}) {
           options = { ...options, ...patch };
@@ -73,7 +93,10 @@ app.whenReady().then(async () => {
           root.render(createElement(ChapterReader, { key: instance,
             document: { content, encoding: 'UTF-8', item: { id: 'test', title: '交互测试',
               fileName: 'test.txt', progress: options.progress || 0, lastOpenedAt: '', readerPosition: options.position } },
-            settings: { ...settings, readerFontSize: options.fontSize || 18, transparentAppChrome: !!options.transparent },
+            settings: { ...settings, readerFontSize: options.fontSize || settings.readerFontSize,
+              readerFontFamily: options.fontFamily || settings.readerFontFamily,
+              readerLetterSpacing: options.letterSpacing ?? settings.readerLetterSpacing,
+              transparentAppChrome: !!options.transparent },
             searchQuery: options.query || '', onProgress }));
         }
         export function mount(patch = {}) { instance++; options = {}; update(patch); }
@@ -94,6 +117,11 @@ app.whenReady().then(async () => {
     assert.equal(state.width, state.scrollWidth)
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('.reader-chapter-scroll')).overflowY`), 'auto')
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('.reader-chapter')).columnWidth`), 'auto')
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.reader-text')).fontSize`), '20px')
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.reader-text')).letterSpacing`), '0.8px')
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.reader-text')).lineHeight`), '40px')
+    assert.ok(await evaluate(`getComputedStyle(document.querySelector('.reader-text')).fontFamily.includes('PingFang SC')`))
+    await screenshot('reader-default.png')
     await previous()
     assert.equal((await read()).title, '第一章 初见')
     console.log('PASS: whole chapter scrolls vertically; only one chapter is rendered; first-chapter boundary')
@@ -134,6 +162,15 @@ app.whenReady().then(async () => {
     await evaluate(`readerHarness.update({ fontSize: 24 })`)
     await delay(150)
     assert.ok(Math.abs((await read()).ratio - 0.47) < 0.01)
+    await evaluate(`readerHarness.update({ fontFamily: 'serif', letterSpacing: 0.12 })`)
+    await delay(150)
+    assert.ok(Math.abs((await read()).ratio - 0.47) < 0.01)
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.reader-text')).letterSpacing`), '2.88px')
+    assert.ok(await evaluate(`getComputedStyle(document.querySelector('.reader-text')).fontFamily.includes('Songti SC')`))
+    await evaluate(`readerHarness.update({ fontFamily: 'sans', letterSpacing: 0 })`)
+    await delay(150)
+    assert.ok(Math.abs((await read()).ratio - 0.47) < 0.01)
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.reader-text')).letterSpacing`), 'normal')
     window.setSize(780, 640)
     await delay(150)
     assert.ok(Math.abs((await read()).ratio - 0.47) < 0.01)
@@ -176,6 +213,38 @@ app.whenReady().then(async () => {
     await delay(100)
     assert.notEqual(await evaluate(`getComputedStyle(document.querySelector('.reader-page')).backgroundColor`), 'rgba(0, 0, 0, 0)')
     console.log('PASS: directory navigation; short final chapter completes; transparent mode toggles correctly')
+
+    await evaluate(`readerHarness.showTypographySettings()`)
+    await until(`!!document.querySelector('#readerFontFamily')`)
+    assert.equal(await evaluate(`(() => {
+      const card = document.querySelector('.reader-font-settings');
+      return card.lastElementChild.getBoundingClientRect().bottom <= card.getBoundingClientRect().bottom - 8;
+    })()`), true)
+    await evaluate(`{ const select = document.querySelector('#readerFontFamily'); select.value = 'kai'; select.dispatchEvent(new Event('change', { bubbles: true })); }`)
+    await until(`readerHarness.settingsEvents.at(-1)?.readerFontFamily === 'kai'`)
+    assert.ok(await evaluate(`getComputedStyle(document.querySelector('.reader-typography-preview')).fontFamily.includes('KaiTi')`))
+    await evaluate(`{ const input = document.querySelector('#readerLetterSpacing');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '0.1');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    }`)
+    await until(`readerHarness.settingsEvents.at(-1)?.readerLetterSpacing === 0.1`)
+    await until(`getComputedStyle(document.querySelector('.reader-typography-preview')).letterSpacing === '2px'`)
+    await evaluate(`document.querySelector('.reader-preset-button').click()`)
+    await until(`readerHarness.settingsEvents.at(-1)?.readerFontFamily === 'sans' && readerHarness.settingsEvents.at(-1)?.readerLetterSpacing === 0.04`)
+    await until(`document.querySelector('#readerFontFamily').value === 'sans'`)
+    assert.equal(await evaluate(`document.querySelector('#readerFontSize').value`), '20')
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.reader-typography-preview')).letterSpacing`), '0.8px')
+    assert.equal(await evaluate(`document.querySelector('.settings-grid').scrollWidth > document.querySelector('.settings-grid').clientWidth`), false)
+    await screenshot('reader-typography-settings.png')
+    await evaluate(`document.querySelector('.reader-typography-settings').scrollIntoView({ block: 'end' })`)
+    assert.equal(await evaluate(`(() => {
+      const grid = document.querySelector('.settings-grid').getBoundingClientRect();
+      const preview = document.querySelector('.reader-typography-preview').getBoundingClientRect();
+      return preview.top >= grid.top && preview.bottom <= grid.bottom;
+    })()`), true)
+    await screenshot('reader-typography-preview.png')
+    console.log('PASS: font and letter-spacing controls save actual values, preview updates and recommended preset restores defaults')
     console.log('All native Chromium chapter reader interaction checks passed.')
   } finally {
     clearTimeout(timeout)

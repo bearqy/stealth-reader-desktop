@@ -21,6 +21,39 @@ afterEach(async () => {
 })
 
 describe('StateStore', () => {
+  it('uses comfortable reading defaults for new installs', async () => {
+    const store = new StateStore(join(await temporaryDirectory(), 'state.json'))
+    await store.load()
+    expect(store.getSettings()).toMatchObject({ readerFontFamily: 'sans', readerFontSize: 20,
+      readerLineHeight: 2, readerLetterSpacing: 0.04 })
+  })
+
+  it('adds new typography defaults without overwriting existing size, line height or bookmarks', async () => {
+    const filePath = join(await temporaryDirectory(), 'state.json')
+    await writeFile(filePath, JSON.stringify({ version: 2,
+      settings: { readerFontSize: 24, readerLineHeight: 2.2 },
+      library: [{ id: 'existing', title: '旧书', fileName: 'book.txt', filePath: '/books/book.txt',
+        progress: 0.4, lastOpenedAt: '', readerPosition: { chapterStart: 100, chapterProgress: 0.5 } }]
+    }))
+    const store = new StateStore(filePath)
+    await store.load()
+    expect(store.getSettings()).toMatchObject({ readerFontFamily: 'sans', readerLetterSpacing: 0.04,
+      readerFontSize: 24, readerLineHeight: 2.2 })
+    expect(store.getLibrary()[0]?.readerPosition).toEqual({ chapterStart: 100, chapterProgress: 0.5 })
+  })
+
+  it('persists font selection and zero letter spacing across restarts', async () => {
+    const filePath = join(await temporaryDirectory(), 'state.json')
+    const store = new StateStore(filePath)
+    await store.load()
+    await store.updateSettings({ readerFontFamily: 'kai', readerLetterSpacing: 0 })
+    const reopened = new StateStore(filePath)
+    await reopened.load()
+    expect(reopened.getSettings()).toMatchObject({ readerFontFamily: 'kai', readerLetterSpacing: 0 })
+    expect((await reopened.updateSettings({ readerLetterSpacing: 8 })).readerLetterSpacing).toBe(0.12)
+    expect((await reopened.updateSettings({ readerLetterSpacing: NaN })).readerLetterSpacing).toBe(0.04)
+  })
+
   it('uses local-first defaults when no state exists', async () => {
     const directory = await temporaryDirectory()
     const store = new StateStore(join(directory, 'state.json'))

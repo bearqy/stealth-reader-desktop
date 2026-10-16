@@ -18,6 +18,7 @@ import type {
 } from '../../shared/contracts'
 import { DEFAULT_READING_SITES } from '../../shared/default-sites'
 import { ChapterReader } from './ChapterReader'
+import { ReaderTypographySettings } from './ReaderTypographySettings'
 import { UpdatePanel } from './UpdatePanel'
 
 type IconName =
@@ -791,56 +792,8 @@ export function App(): React.JSX.Element {
                   onPointerUp={() => void updateSettings({ opacity: settings.opacity })}
                 />
               </label>
-              <label className="setting-card">
-                <div className="setting-title">
-                  <div>
-                    <strong>阅读字号</strong>
-                    <span>适用于 TXT 阅读器</span>
-                  </div>
-                  <output>{settings.readerFontSize}px</output>
-                </div>
-                <input
-                  max="34"
-                  min="12"
-                  step="1"
-                  type="range"
-                  value={settings.readerFontSize}
-                  onBlur={() =>
-                    void updateSettings({ readerFontSize: settings.readerFontSize })
-                  }
-                  onChange={(event) =>
-                    setSettings({ ...settings, readerFontSize: Number(event.target.value) })
-                  }
-                  onPointerUp={() =>
-                    void updateSettings({ readerFontSize: settings.readerFontSize })
-                  }
-                />
-              </label>
-              <label className="setting-card">
-                <div className="setting-title">
-                  <div>
-                    <strong>阅读行距</strong>
-                    <span>紧凑或舒展都可以</span>
-                  </div>
-                  <output>{settings.readerLineHeight.toFixed(1)}</output>
-                </div>
-                <input
-                  max="2.8"
-                  min="1.2"
-                  step="0.1"
-                  type="range"
-                  value={settings.readerLineHeight}
-                  onBlur={() =>
-                    void updateSettings({ readerLineHeight: settings.readerLineHeight })
-                  }
-                  onChange={(event) =>
-                    setSettings({ ...settings, readerLineHeight: Number(event.target.value) })
-                  }
-                  onPointerUp={() =>
-                    void updateSettings({ readerLineHeight: settings.readerLineHeight })
-                  }
-                />
-              </label>
+              <ReaderTypographySettings settings={settings} onSave={updateSettings}
+                onPreview={(patch) => setSettings((current) => current ? { ...current, ...patch } : current)} />
               <div className="setting-card">
                 <div className="setting-title">
                   <div>
