@@ -56,9 +56,16 @@ jobs:
       - name: Build application
         run: npm run build
       - name: Package installers
+        # Certificate-free ad-hoc signing only: no signing secrets or keychains are imported.
+        # electron-builder otherwise skips even ad-hoc signing for pull_request builds.
+        env:
+          CSC_FOR_PULL_REQUEST: ${{ matrix.platform == 'mac' && 'true' || 'false' }}
         run: npx --no-install electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
       - name: Verify packaged version and source
         run: node scripts/verify-bundle.cjs "${{ matrix.bundle }}"
+      - name: Verify macOS DMG signature and launch
+        if: matrix.platform == 'mac'
+        run: node scripts/verify-macos-dmg.cjs
       - name: Create legacy updater aliases
         run: node scripts/create-update-aliases.cjs
       - name: Upload installers
