@@ -15,7 +15,8 @@ function verifyDirectory(directory) {
     const file = join(directory, entry.name)
     if (entry.isDirectory()) verifyDirectory(file)
     else {
-      const path = relative('.', file).split('\\').join('/')
+      // @electron/asar resolves archive entries using the host's native path separator.
+      const path = relative('.', file)
       assert.deepEqual(extractFile(archive, path), readFileSync(file), `Stale packaged file: ${path}`)
     }
   }
