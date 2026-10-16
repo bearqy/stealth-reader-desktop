@@ -1,6 +1,6 @@
 {
   "name": "stealth-reader-desktop",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Local-first desktop web browser and reader for macOS and Windows",
   "main": "./out/main/index.js",
@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64",
     "dist:win": "npm run build && electron-builder --win"
   },
   "dependencies": {
@@ -46,15 +46,10 @@
       "output": "release"
     },
     "mac": {
+      "artifactName": "Stealth-Reader-${version}-${arch}.${ext}",
       "category": "public.app-category.productivity",
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        }
+        "dmg"
       ]
     },
     "win": {
@@ -64,8 +59,12 @@
       ]
     },
     "nsis": {
+      "artifactName": "Stealth-Reader-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "portable": {
+      "artifactName": "Stealth-Reader-Portable-${version}-${arch}.${ext}"
     }
   },
   "allowScripts": {

@@ -5,7 +5,8 @@ import type {
   BrowserBounds,
   BrowserState,
   StealthReaderApi,
-  TextDocument
+  TextDocument,
+  UpdateState
 } from '../shared/contracts'
 import { IPC } from '../shared/contracts'
 
@@ -18,6 +19,23 @@ const api: StealthReaderApi = {
   window: {
     hide: () => ipcRenderer.invoke(IPC.windowHide) as Promise<void>,
     minimize: () => ipcRenderer.invoke(IPC.windowMinimize) as Promise<void>
+  },
+  updates: {
+    check: () => ipcRenderer.invoke(IPC.updatesCheck) as Promise<UpdateState>,
+    download: () => ipcRenderer.invoke(IPC.updatesDownload) as Promise<UpdateState>,
+    cancel: () => ipcRenderer.invoke(IPC.updatesCancel) as Promise<UpdateState>,
+    install: () => ipcRenderer.invoke(IPC.updatesInstall) as Promise<UpdateState>,
+    openRelease: () => ipcRenderer.invoke(IPC.updatesOpenRelease) as Promise<void>,
+    onState: (listener: (state: UpdateState) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: UpdateState): void => listener(state)
+      ipcRenderer.on(IPC.updatesState, handler)
+      return () => ipcRenderer.removeListener(IPC.updatesState, handler)
+    },
+    onShow: (listener: () => void) => {
+      const handler = (): void => listener()
+      ipcRenderer.on(IPC.updatesShow, handler)
+      return () => ipcRenderer.removeListener(IPC.updatesShow, handler)
+    }
   },
   browser: {
     create: (url?: string) =>

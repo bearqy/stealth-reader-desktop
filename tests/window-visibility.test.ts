@@ -14,7 +14,8 @@ const settings: AppSettings = {
   toolbarCollapsed: false,
   readerFontSize: 18,
   readerLineHeight: 1.9,
-  readerTheme: 'paper'
+  readerTheme: 'paper',
+  checkUpdatesOnLaunch: true
 }
 
 describe('resolveWindowOpacity', () => {

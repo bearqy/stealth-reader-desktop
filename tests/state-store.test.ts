@@ -59,6 +59,18 @@ describe('StateStore', () => {
     expect(store.getSettings().hideWhenPointerLeaves).toBe(true)
   })
 
+  it('defaults startup update checks on for older settings and persists opt-out', async () => {
+    const directory = await temporaryDirectory()
+    const filePath = join(directory, 'state.json')
+    const store = new StateStore(filePath)
+    await store.load()
+    expect(store.getSettings().checkUpdatesOnLaunch).toBe(true)
+    await store.updateSettings({ checkUpdatesOnLaunch: false })
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+    expect(reloaded.getSettings().checkUpdatesOnLaunch).toBe(false)
+  })
+
   it('migrates the earlier automatic toolbar setting to the manual switch', async () => {
     const directory = await temporaryDirectory()
     const filePath = join(directory, 'state.json')

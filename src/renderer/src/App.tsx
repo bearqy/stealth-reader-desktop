@@ -12,9 +12,12 @@ import type {
   AppSettings,
   BrowserState,
   LibraryItem,
-  TextDocument
+  TextDocument,
+  UpdateState
 } from '../../shared/contracts'
 import { DEFAULT_READING_SITES } from '../../shared/default-sites'
+import { parseTextChapters } from '../../shared/text-chapters'
+import { UpdatePanel } from './UpdatePanel'
 
 type IconName =
   | 'arrow-left'
@@ -22,9 +25,11 @@ type IconName =
   | 'book'
   | 'browser'
   | 'droplet'
+  | 'download'
   | 'eye-off'
   | 'gear'
   | 'media-off'
+  | 'list'
   | 'minimize'
   | 'plus'
   | 'refresh'
@@ -50,6 +55,7 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   droplet: <path d="M12 2.5s6 6.6 6 11a6 6 0 0 1-12 0c0-4.4 6-11 6-11Z" />,
+  download: <path d="M12 3v12M7 10l5 5 5-5M4 17v4h16v-4" />,
   'eye-off': (
     <>
       <path d="m3 3 18 18" />
@@ -70,6 +76,7 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   minimize: <path d="M5 12h14" />,
+  list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
   plus: <path d="M12 5v14M5 12h14" />,
   refresh: <path d="M20 6v5h-5M4 18v-5h5M5.6 9a7 7 0 0 1 11.8-2.6L20 11M4 13l2.6 4.6A7 7 0 0 0 18.4 15" />,
   search: (
@@ -145,11 +152,13 @@ interface MatchPart {
   text: string
   match: boolean
   index?: number
+  start: number
+  end: number
 }
 
 function buildHighlightedParts(content: string, query: string): MatchPart[] {
   const term = query.trim().toLocaleLowerCase()
-  if (!term) return [{ text: content, match: false }]
+  if (!term) return [{ text: content, match: false, start: 0, end: content.length }]
 
   const lower = content.toLocaleLowerCase()
   const parts: MatchPart[] = []
@@ -158,16 +167,22 @@ function buildHighlightedParts(content: string, query: string): MatchPart[] {
   while (matchIndex < 300) {
     const found = lower.indexOf(term, cursor)
     if (found < 0) break
-    if (found > cursor) parts.push({ text: content.slice(cursor, found), match: false })
+    if (found > cursor) {
+      parts.push({ text: content.slice(cursor, found), match: false, start: cursor, end: found })
+    }
     parts.push({
       text: content.slice(found, found + term.length),
       match: true,
-      index: matchIndex
+      index: matchIndex,
+      start: found,
+      end: found + term.length
     })
     cursor = found + term.length
     matchIndex += 1
   }
-  if (cursor < content.length) parts.push({ text: content.slice(cursor), match: false })
+  if (cursor < content.length) {
+    parts.push({ text: content.slice(cursor), match: false, start: cursor, end: content.length })
+  }
   return parts
 }
 
@@ -185,18 +200,42 @@ function ReaderView({
   const scrollRef = useRef<HTMLDivElement>(null)
   const saveTimerRef = useRef<number | null>(null)
   const pendingProgressRef = useRef<number | null>(null)
+  const chapterElementsRef = useRef<Array<HTMLElement | null>>([])
+  const [directoryOpen, setDirectoryOpen] = useState(false)
+  const [activeChapter, setActiveChapter] = useState(0)
+  const chapters = useMemo(() => parseTextChapters(document?.content ?? ''), [document?.content])
   const parts = useMemo(
     () => buildHighlightedParts(document?.content ?? '', searchQuery),
     [document?.content, searchQuery]
   )
 
+  const updateActiveChapter = useCallback((): void => {
+    const scroll = scrollRef.current
+    if (!scroll) return
+    const top = scroll.getBoundingClientRect().top + 56
+    let low = 0
+    let high = chapters.length - 1
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2)
+      const element = chapterElementsRef.current[middle]
+      if (element && element.getBoundingClientRect().top <= top) low = middle
+      else high = middle - 1
+    }
+    setActiveChapter(low)
+  }, [chapters])
+
   useEffect(() => {
     const scroll = scrollRef.current
     if (!scroll || !document) return
-    requestAnimationFrame(() => {
+    setDirectoryOpen(false)
+    setActiveChapter(0)
+    pendingProgressRef.current = null
+    const frame = requestAnimationFrame(() => {
       const max = Math.max(0, scroll.scrollHeight - scroll.clientHeight)
       scroll.scrollTop = max * document.item.progress
+      updateActiveChapter()
     })
+    return () => cancelAnimationFrame(frame)
   }, [document?.item.id])
 
   useEffect(() => {
@@ -213,6 +252,7 @@ function ReaderView({
   const handleScroll = (): void => {
     const scroll = scrollRef.current
     if (!scroll || !document) return
+    updateActiveChapter()
     const max = scroll.scrollHeight - scroll.clientHeight
     const progress = max > 0 ? scroll.scrollTop / max : 0
     const itemId = document.item.id
@@ -223,6 +263,24 @@ function ReaderView({
       pendingProgressRef.current = null
     }, 450)
   }
+
+  const jumpToChapter = (index: number): void => {
+    const scroll = scrollRef.current
+    const element = chapterElementsRef.current[index]
+    if (!scroll || !element) return
+    scroll.scrollTop += element.getBoundingClientRect().top - scroll.getBoundingClientRect().top - 24
+    setActiveChapter(index)
+    setDirectoryOpen(false)
+    handleScroll()
+  }
+
+  const renderRange = (start: number, end: number): ReactNode =>
+    parts.filter((part) => part.start < end && part.end > start).map((part) => {
+      const text = part.text.slice(Math.max(0, start - part.start), Math.min(part.text.length, end - part.start))
+      return part.match ? (
+        <mark key={part.start} id={`match-${part.index}`}>{text}</mark>
+      ) : text
+    })
 
   if (!document) {
     return (
@@ -238,34 +296,76 @@ function ReaderView({
   }
 
   return (
-    <div
-      ref={scrollRef}
-      className={`reader-scroll theme-${settings.readerTheme}`}
-      onScroll={handleScroll}
-    >
-      <article
-        className="reader-page"
-        style={{
-          fontSize: `${settings.readerFontSize}px`,
-          lineHeight: settings.readerLineHeight
-        }}
-      >
-        <header className="reader-title">
-          <span>{document.encoding}</span>
-          <h1>{document.item.title}</h1>
-        </header>
-        <div className="reader-text">
-          {parts.map((part, index) =>
-            part.match ? (
-              <mark id={`match-${part.index}`} key={`${index}-${part.text}`}>
-                {part.text}
-              </mark>
-            ) : (
-              part.text
-            )
+    <div className="reader-layout">
+      <div className="reader-chapter-controls">
+        <button
+          aria-controls="reader-directory"
+          aria-expanded={directoryOpen}
+          className="chapter-directory-toggle"
+          type="button"
+          onClick={() => setDirectoryOpen((value) => !value)}
+        >
+          <Icon name="list" size={16} />
+          目录 <span>{chapters.length}</span>
+        </button>
+        <span className="current-chapter" title={chapters[activeChapter]?.title}>
+          {chapters[activeChapter]?.title}
+        </span>
+        <IconButton icon="arrow-left" label="上一章" disabled={activeChapter === 0}
+          onClick={() => jumpToChapter(activeChapter - 1)} />
+        <IconButton icon="arrow-right" label="下一章" disabled={activeChapter >= chapters.length - 1}
+          onClick={() => jumpToChapter(activeChapter + 1)} />
+      </div>
+      {directoryOpen && (
+        <nav className="reader-directory" id="reader-directory" aria-label="章节目录"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setDirectoryOpen(false)
+          }}>
+          <div className="directory-heading">
+            <strong>章节目录 · {chapters.length}</strong>
+            <IconButton icon="x" label="关闭目录" onClick={() => setDirectoryOpen(false)} />
+          </div>
+          {chapters.length === 1 && chapters[0]?.bodyStart === 0 && (
+            <p className="directory-hint">未识别到章节标题，按全文阅读。</p>
           )}
-        </div>
-      </article>
+          <div className="chapter-list">
+            {chapters.map((chapter, index) => (
+              <button key={chapter.id} type="button" title={chapter.title}
+                aria-current={index === activeChapter ? 'location' : undefined}
+                onClick={() => jumpToChapter(index)}>
+                {chapter.title}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
+      <div
+        ref={scrollRef}
+        className={`reader-scroll theme-${settings.readerTheme}`}
+        onScroll={handleScroll}
+      >
+        <article
+          className="reader-page"
+          style={{
+            fontSize: `${settings.readerFontSize}px`,
+            lineHeight: settings.readerLineHeight
+          }}
+        >
+          <header className="reader-title">
+            <span>{document.encoding}</span>
+            <h1>{document.item.title}</h1>
+          </header>
+          {chapters.map((chapter, index) => (
+            <section className="reader-chapter" key={chapter.id} data-chapter-id={chapter.id}
+              ref={(element) => { chapterElementsRef.current[index] = element }}>
+              {chapter.bodyStart > chapter.start && (
+                <h2>{renderRange(chapter.start, chapter.bodyStart)}</h2>
+              )}
+              <div className="reader-text">{renderRange(chapter.bodyStart, chapter.end)}</div>
+            </section>
+          ))}
+        </article>
+      </div>
     </div>
   )
 }
@@ -274,6 +374,7 @@ export function App(): React.JSX.Element {
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<AppMode>('browser')
   const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [updates, setUpdates] = useState<UpdateState | null>(null)
   const [library, setLibrary] = useState<LibraryItem[]>([])
   const [browser, setBrowser] = useState<BrowserState>({ tabs: [], activeTabId: null })
   const [address, setAddress] = useState('')
@@ -282,6 +383,11 @@ export function App(): React.JSX.Element {
   const [showSettings, setShowSettings] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const browserSurfaceRef = useRef<HTMLDivElement>(null)
+
+  const showUpdates = useCallback(() => {
+    setShowSettings(true)
+    setTimeout(() => window.document.getElementById('app-updates')?.scrollIntoView({ block: 'start' }), 0)
+  }, [])
 
   const activeTab = browser.tabs.find((tab) => tab.id === browser.activeTabId)
   const searchMatchCount = useMemo(() => {
@@ -297,7 +403,7 @@ export function App(): React.JSX.Element {
       cursor = found + term.length
     }
     return count
-  }, [document, searchQuery])
+  }, [document?.content, searchQuery])
 
   useEffect(() => {
     let mounted = true
@@ -306,6 +412,7 @@ export function App(): React.JSX.Element {
       .then((initial) => {
         if (!mounted) return
         setSettings(initial.settings)
+        setUpdates(initial.updates)
         setLibrary(initial.library)
         setBrowser(initial.browser)
         const current = initial.browser.tabs.find(
@@ -319,9 +426,13 @@ export function App(): React.JSX.Element {
     const unsubscribe = window.stealthReader.browser.onState((next) => {
       setBrowser(next)
     })
+    const unsubscribeUpdates = window.stealthReader.updates.onState(setUpdates)
+    const unsubscribeShowUpdates = window.stealthReader.updates.onShow(showUpdates)
     return () => {
       mounted = false
       unsubscribe()
+      unsubscribeUpdates()
+      unsubscribeShowUpdates()
     }
   }, [])
 
@@ -424,6 +535,10 @@ export function App(): React.JSX.Element {
   }
 
   const saveProgress = useCallback((itemId: string, progress: number): void => {
+    // Keep the open book in sync too: returning from settings or the browser remounts ReaderView.
+    setDocument((current) => current?.item.id === itemId
+      ? { ...current, item: { ...current.item, progress } }
+      : current)
     void window.stealthReader.library
       .updateProgress(itemId, progress)
       .then(setLibrary)
@@ -560,6 +675,13 @@ export function App(): React.JSX.Element {
             </div>
           </div>
         )}
+
+        <button className="sidebar-update-button" type="button" onClick={showUpdates}>
+          <Icon name="download" size={15} />
+          {updates?.status === 'available' || updates?.status === 'downloaded'
+            ? `新版本 v${updates.latest?.version}`
+            : updates?.status === 'downloading' ? `下载中 ${updates.progress?.percent ?? 0}%` : '软件更新'}
+        </button>
 
         <div className="privacy-card">
           <span className="privacy-dot" />
@@ -763,6 +885,15 @@ export function App(): React.JSX.Element {
               <p>所有设置都保存在本机。账号、会员和云同步不在当前版本中。</p>
             </div>
             <div className="settings-grid">
+              {updates && <UpdatePanel state={updates} onState={setUpdates} />}
+              <label className="setting-card setting-toggle">
+                <div>
+                  <strong>启动时检查更新</strong>
+                  <span>从 GitHub 获取正式版本信息，不自动下载或安装</span>
+                </div>
+                <input checked={settings.checkUpdatesOnLaunch} type="checkbox"
+                  onChange={(event) => void updateSettings({ checkUpdatesOnLaunch: event.target.checked })} />
+              </label>
               <label className="setting-card setting-toggle">
                 <div>
                   <strong>窗口始终置顶</strong>
@@ -829,8 +960,8 @@ export function App(): React.JSX.Element {
               </label>
               <label className="setting-card setting-toggle">
                 <div>
-                  <strong>网页纯文字模式</strong>
-                  <span>仅保留可读文字，其他网页区域全部透明</span>
+                  <strong>纯文字透明模式</strong>
+                  <span>网页与 TXT 仅保留文字，清除内容背景、边框与阴影</span>
                 </div>
                 <input
                   checked={settings.textOnlyWeb}

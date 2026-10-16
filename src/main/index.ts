@@ -9,6 +9,7 @@ import {
   Menu,
   nativeImage,
   screen,
+  shell,
   Tray
 } from 'electron'
 import type { AppSettings, BrowserBounds } from '../shared/contracts'
@@ -23,11 +24,15 @@ import {
   windowsTitleBarOverlay
 } from './window-chrome'
 import { resolveWindowOpacity } from './window-visibility'
+import { UpdateManager } from './update-manager'
+import { createUpdateFetch } from './update-network'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let browserManager: BrowserManager | null = null
 let stateStore: StateStore
+let updateManager: UpdateManager
+let updateCheckTimer: NodeJS.Timeout | null = null
 let quitting = false
 let pointerVisibilityTimer: NodeJS.Timeout | null = null
 let appliedWindowOpacity: number | null = null
@@ -92,6 +97,14 @@ function createTray(): void {
   tray.setToolTip('Stealth Reader')
   const trayMenu = Menu.buildFromTemplate([
     { label: '显示程序', click: showWindow },
+    {
+      label: '检查更新…',
+      click: () => {
+        showWindow()
+        mainWindow?.webContents.send(IPC.updatesShow)
+        void updateManager.check()
+      }
+    },
     {
       label: '退出程序',
       click: () => {
@@ -244,7 +257,8 @@ function registerIpc(): void {
     return {
       settings: stateStore.getSettings(),
       library: stateStore.getLibrary(),
-      browser: browserManager?.getState() ?? { tabs: [], activeTabId: null }
+      browser: browserManager?.getState() ?? { tabs: [], activeTabId: null },
+      updates: updateManager.getState()
     }
   })
 
@@ -280,6 +294,27 @@ function registerIpc(): void {
   ipcMain.handle(IPC.windowMinimize, (event) => {
     assertTrustedSender(event)
     mainWindow?.minimize()
+  })
+
+  ipcMain.handle(IPC.updatesCheck, (event) => {
+    assertTrustedSender(event)
+    return updateManager.check()
+  })
+  ipcMain.handle(IPC.updatesDownload, (event) => {
+    assertTrustedSender(event)
+    return updateManager.download()
+  })
+  ipcMain.handle(IPC.updatesCancel, (event) => {
+    assertTrustedSender(event)
+    return updateManager.cancel()
+  })
+  ipcMain.handle(IPC.updatesInstall, (event) => {
+    assertTrustedSender(event)
+    return updateManager.install()
+  })
+  ipcMain.handle(IPC.updatesOpenRelease, (event) => {
+    assertTrustedSender(event)
+    return updateManager.openRelease()
   })
 
   ipcMain.handle(IPC.browserCreate, (event, url?: string) => {
@@ -366,10 +401,40 @@ if (!hasSingleInstanceLock) {
     app.setAppUserModelId('com.stealthreader.desktop')
     stateStore = new StateStore(join(app.getPath('userData'), 'local-state.json'))
     await stateStore.load()
+    updateManager = new UpdateManager({
+      version: app.getVersion(),
+      target: {
+        platform: process.platform,
+        arch: app.runningUnderARM64Translation ? 'arm64' : process.arch,
+        portable: process.platform === 'win32' && Boolean(process.env.PORTABLE_EXECUTABLE_DIR)
+      },
+      packaged: app.isPackaged,
+      cacheDirectory: join(app.getPath('userData'), 'updates'),
+      fetch: createUpdateFetch(),
+      onState: (state) => {
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(IPC.updatesState, state)
+      },
+      openExternal: (url) => shell.openExternal(url),
+      openInstaller: async (file, portable) => {
+        if (portable) {
+          shell.showItemInFolder(file)
+          return
+        }
+        const error = await shell.openPath(file)
+        if (error) throw new Error('无法打开安装包，请重新下载或前往发布页面安装。')
+        // Reply to IPC before quitting; before-quit releases the normal window-close policy.
+        setTimeout(() => app.quit(), 250)
+      }
+    })
     registerIpc()
     await registerInitialBossShortcut()
     createTray()
     await createWindow()
+    if (app.isPackaged) {
+      updateCheckTimer = setTimeout(() => {
+        if (stateStore.getSettings().checkUpdatesOnLaunch) void updateManager.check()
+      }, 10_000)
+    }
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) void createWindow()
@@ -380,6 +445,7 @@ if (!hasSingleInstanceLock) {
 
 app.on('before-quit', () => {
   quitting = true
+  if (updateCheckTimer) clearTimeout(updateCheckTimer)
   globalShortcut.unregisterAll()
 })
 
