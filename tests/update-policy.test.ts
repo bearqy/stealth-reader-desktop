@@ -22,6 +22,24 @@ describe('update version policy', () => {
 
 describe('platform and release matching', () => {
   const release = parseGitHubRelease(githubRelease())
+  it('prefers standard names with explicit OS, architecture and installer type', () => {
+    const names = ['StealthReader-0.2.0-macos-arm64.dmg', 'StealthReader-0.2.0-macos-x64.dmg',
+      'StealthReader-0.2.0-windows-x64-setup.exe', 'StealthReader-0.2.0-windows-x64-portable.exe']
+    const combined = parseGitHubRelease(githubRelease('0.2.0', [...release.assets.map(asset => asset.name), ...names]))
+    expect(selectReleaseAsset(combined, { platform: 'darwin', arch: 'arm64', portable: false })?.name).toBe(names[0])
+    expect(selectReleaseAsset(combined, { platform: 'darwin', arch: 'x64', portable: false })?.name).toBe(names[1])
+    expect(selectReleaseAsset(combined, { platform: 'win32', arch: 'x64', portable: false })?.name).toBe(names[2])
+    expect(selectReleaseAsset(combined, { platform: 'win32', arch: 'x64', portable: true })?.name).toBe(names[3])
+    expect(selectReleaseAsset(combined, { platform: 'win32', arch: 'arm64', portable: false })).toBeNull()
+  })
+
+  it('supports universal standard names without accepting the wrong OS or package type', () => {
+    const universal = parseGitHubRelease(githubRelease('0.2.0', ['StealthReader-0.2.0-macos-universal.dmg']))
+    expect(selectReleaseAsset(universal, { platform: 'darwin', arch: 'arm64', portable: false })?.name).toContain('macos-universal')
+    expect(selectReleaseAsset(universal, { platform: 'win32', arch: 'x64', portable: false })).toBeNull()
+    const portable = parseGitHubRelease(githubRelease('0.2.0', ['StealthReader-0.2.0-windows-x64-portable.exe']))
+    expect(selectReleaseAsset(portable, { platform: 'win32', arch: 'x64', portable: false })).toBeNull()
+  })
   it('matches both macOS architectures and distinguishes Windows setup from portable', () => {
     expect(selectReleaseAsset(release, { platform: 'darwin', arch: 'arm64', portable: false })?.name).toBe('Stealth-Reader-0.2.0-arm64.dmg')
     expect(selectReleaseAsset(release, { platform: 'darwin', arch: 'x64', portable: false })?.name).toBe('Stealth-Reader-0.2.0-x64.dmg')

@@ -59,6 +59,8 @@ jobs:
         run: npx --no-install electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
       - name: Verify packaged version and source
         run: node scripts/verify-bundle.cjs "${{ matrix.bundle }}"
+      - name: Create legacy updater aliases
+        run: node scripts/create-update-aliases.cjs
       - name: Upload installers
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -70,3 +72,4 @@ jobs:
             release/*.dmg
             release/*.exe
             release/*.blockmap
+            release/update-compat/*
