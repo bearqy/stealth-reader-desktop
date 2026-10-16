@@ -20,7 +20,7 @@ app.whenReady().then(async () => {
       if (await evaluate(expression)) return
       await delay(30)
     }
-    throw new Error(`Reader condition failed: ${expression}\n${JSON.stringify(await read())}\n${JSON.stringify(await evaluate('readerHarness.events.at(-1)'))}`)
+    throw new Error(`Reader condition failed: ${expression}\n${JSON.stringify(await read())}\n${JSON.stringify(await evaluate('readerHarness.events.at(-1)'))}\nKeys: ${JSON.stringify(await evaluate('globalThis.readerKeys'))}`)
   }
   const read = () => evaluate(`(() => {
     const viewport = document.querySelector('.reader-chapter-scroll');
@@ -35,7 +35,10 @@ app.whenReady().then(async () => {
   const key = async (keyCode) => {
     await evaluate(`document.querySelector('.reader-chapter-scroll').focus()`)
     window.webContents.sendInputEvent({ type: 'keyDown', keyCode })
+    // Windows generates Space's native scroll from the character event.
+    if (keyCode === 'Space') window.webContents.sendInputEvent({ type: 'char', keyCode: ' ' })
     window.webContents.sendInputEvent({ type: 'keyUp', keyCode })
+    await delay(350)
   }
   try {
     const style = readFileSync(resolve(__dirname, '../src/renderer/src/styles.css'), 'utf8')
@@ -78,6 +81,9 @@ app.whenReady().then(async () => {
         mount();
       ` } }).outputFiles[0].text
     await evaluate(bundle)
+    await evaluate(`globalThis.readerKeys = []; document.addEventListener('keydown', event => {
+      setTimeout(() => readerKeys.push({ key: event.key, prevented: event.defaultPrevented }), 0);
+    });`)
     await until(`document.querySelector('.reader-chapter-scroll')?.scrollHeight > 2000`)
     await delay(100)
     let state = await read()
