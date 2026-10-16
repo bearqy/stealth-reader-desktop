@@ -1,6 +1,6 @@
 {
   "name": "stealth-reader-desktop",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "Local-first desktop web browser and reader for macOS and Windows",
   "main": "./out/main/index.js",
@@ -14,6 +14,7 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
+    "test:reader": "electron scripts/test-chapter-reader.cjs",
     "test:watch": "vitest",
     "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64",
     "dist:win": "npm run build && electron-builder --win"

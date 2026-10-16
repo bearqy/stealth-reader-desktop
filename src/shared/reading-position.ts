@@ -20,10 +20,12 @@ export function resolveReadingPosition(chapters: ReadingChapter[], length: numbe
   return { chapter, ratio }
 }
 
-export function readingPageCount(width: number, scrollWidth: number, gap: number): number {
-  return width > 0 ? Math.max(1, Math.ceil((scrollWidth + gap - 1) / (width + gap))) : 1
+export function chapterScrollRatio(scrollTop: number, scrollHeight: number, viewportHeight: number): number {
+  const range = Math.max(0, scrollHeight - viewportHeight)
+  return range > 0 ? Math.max(0, Math.min(1, scrollTop / range)) : 1
 }
 
-export function readingProgress(chapter: ReadingChapter, length: number, page: number, pages: number): number {
-  return length > 0 ? Math.min(1, (chapter.start + (chapter.end - chapter.start) * (page + 1) / Math.max(1, pages)) / length) : 0
+export function readingProgress(chapter: Pick<ReadingChapter, 'start' | 'end'>, length: number, ratio: number): number {
+  const position = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0
+  return length > 0 ? Math.min(1, (chapter.start + (chapter.end - chapter.start) * position) / length) : 0
 }

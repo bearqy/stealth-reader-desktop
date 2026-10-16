@@ -1003,20 +1003,22 @@ button {
   break-after: avoid;
 }
 
-.reader-paginated {
-  overflow: hidden;
+.reader-chapter-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 14px 0;
+  outline-offset: -3px;
 }
 
-.reader-paginated .reader-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  padding: 26px clamp(20px, 4vw, 48px);
+.reader-chapter-scroll .reader-page {
+  min-height: 100%;
+  padding: 26px clamp(20px, 4vw, 48px) 64px;
   margin: 0 auto;
-  overflow: hidden;
+  overflow-wrap: anywhere;
 }
+
+.reader-chapter-scroll:focus:not(:focus-visible) { outline: none; }
 
 .reader-book-label {
   display: flex;
@@ -1032,21 +1034,6 @@ button {
 
 .reader-book-label span { flex-shrink: 0; }
 
-.reader-page-viewport {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  outline-offset: 5px;
-}
-
-.reader-page-viewport:focus:not(:focus-visible) { outline: none; }
-
-.reader-pages {
-  height: 100%;
-  column-fill: auto;
-  overflow-wrap: anywhere;
-}
-
 .reader-text { orphans: 2; widows: 2; }
 
 .reader-volume-title {
@@ -1055,7 +1042,7 @@ button {
   font-size: 0.72em;
 }
 
-.reader-pagination {
+.reader-chapter-navigation {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1069,7 +1056,7 @@ button {
 }
 
 .chapter-nav-button,
-.reader-pagination button {
+.reader-chapter-navigation button {
   flex-shrink: 0;
   padding: 8px 10px;
   color: inherit;
@@ -1081,7 +1068,7 @@ button {
 }
 
 .chapter-nav-button:disabled,
-.reader-pagination button:disabled { opacity: 0.35; cursor: default; }
+.reader-chapter-navigation button:disabled { opacity: 0.35; cursor: default; }
 
 .reader-key-hint {
   padding: 2px 12px 6px;
@@ -1108,7 +1095,7 @@ button {
 .volume-group summary span { margin-left: auto; opacity: 0.55; white-space: nowrap; }
 .volume-group button { padding-left: 24px; }
 
-:is(.text-only-web, .transparent-app-chrome) .reader-pagination {
+:is(.text-only-web, .transparent-app-chrome) .reader-chapter-navigation {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
