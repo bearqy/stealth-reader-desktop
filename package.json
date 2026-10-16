@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64",
     "dist:win": "npm run build && electron-builder --win"
   },
   "dependencies": {
@@ -49,13 +49,7 @@
       "artifactName": "Stealth-Reader-${version}-${arch}.${ext}",
       "category": "public.app-category.productivity",
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        }
+        "dmg"
       ]
     },
     "win": {
