@@ -47,6 +47,9 @@
     },
     "mac": {
       "artifactName": "StealthReader-${version}-macos-${arch}.${ext}",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "notarize": false,
       "category": "public.app-category.productivity",
       "target": [
         "dmg"
