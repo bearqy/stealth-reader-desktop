@@ -15,7 +15,9 @@ const ENGLISH_VOLUME = /^(?:part|book|volume)\s+(?:\d+|[ivxlcdm]+)(?:$|[\s.:：�
 
 function chapterTitle(line: string): string | null {
   const title = line.trim().replace(/^#{1,6}\s+/, '').replace(/\s+#+$/, '').replace(/^正文[\s：:]+/, '').trim()
-  if (!title || title.length > 80 || /[。！？!?；;]/u.test(title)) return null
+  // Questions/exclamations are common in real titles (e.g. 第363节：幽魂？幽魂！).
+  // Keep sentence/length guards, but let the explicit heading patterns decide these lines.
+  if (!title || title.length > 80 || /[。；;]/u.test(title)) return null
   return CHINESE_HEADING.test(title) || VOLUME_HEADING.test(title) || SPECIAL_HEADING.test(title) || ENGLISH_HEADING.test(title) || ENGLISH_VOLUME.test(title)
     ? title
     : null

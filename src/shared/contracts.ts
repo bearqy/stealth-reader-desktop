@@ -105,6 +105,7 @@ export interface StealthReaderApi {
     download(): Promise<UpdateState>
     cancel(): Promise<UpdateState>
     install(): Promise<UpdateState>
+    confirmStartup(): Promise<void>
     openRelease(): Promise<void>
     onState(listener: (state: UpdateState) => void): () => void
     onShow(listener: () => void): () => void
@@ -138,6 +139,7 @@ export const IPC = {
   updatesDownload: 'updates:download',
   updatesCancel: 'updates:cancel',
   updatesInstall: 'updates:install',
+  updatesStartupReady: 'updates:startup-ready',
   updatesOpenRelease: 'updates:open-release',
   updatesState: 'updates:state',
   updatesShow: 'updates:show',

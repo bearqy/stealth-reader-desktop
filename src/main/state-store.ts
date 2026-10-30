@@ -119,6 +119,10 @@ export class StateStore {
     return { ...this.state.settings }
   }
 
+  async flush(): Promise<void> {
+    await this.writeQueue
+  }
+
   async updateSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
     this.state.settings = clampSettings({ ...this.state.settings, ...patch })
     await this.persist()

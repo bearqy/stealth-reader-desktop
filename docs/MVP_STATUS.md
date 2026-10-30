@@ -52,7 +52,8 @@
 ### 工程保障
 
 - 从公开 GitHub Releases 检查正式版本，支持启动检查开关、设置/托盘入口、macOS arm64/x64 与 Windows 安装/免安装包匹配、可取消流式下载及 SHA-256/大小校验。
-- 用户确认后将已校验的包交给系统安装：Windows 启动 NSIS 并退出旧进程，未签名 macOS 打开 DMG 后退出供手动覆盖，portable 定位文件供退出后手动替换；不静默替换、不降级。
+- 用户确认后安装：Mac 校验并只读挂载 DMG，将新应用预置于原应用同卷的私有目录，独立安装助手等待旧进程退出后替换并经 LaunchServices 重启；新界面确认启动失败时回滚。Windows 启动 NSIS 并退出旧进程，portable 定位文件供退出后手动替换；不静默安装、不降级。
+- Mac 更新保留原用户数据目录，校验 bundle 标识/版本/架构、deep/strict 签名以及正式签名的团队一致性；不可写、链接、磁盘映像目录拒绝自动替换，不请求管理员密码，不删除 quarantine 或修改系统安全策略。
 
 - TypeScript strict mode。
 - 生产构建。

@@ -26,6 +26,7 @@ import {
 import { resolveWindowOpacity } from './window-visibility'
 import { UpdateManager } from './update-manager'
 import { createUpdateFetch } from './update-network'
+import { prepareMacUpdate, registerMacUpdateProcess, confirmMacUpdateStartup, macUpdateFailure } from './mac-update'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -312,6 +313,13 @@ function registerIpc(): void {
     assertTrustedSender(event)
     return updateManager.install()
   })
+  ipcMain.handle(IPC.updatesStartupReady, async (event) => {
+    assertTrustedSender(event)
+    if (process.platform === 'darwin' && app.isPackaged) {
+      await stateStore.flush()
+      await confirmMacUpdateStartup(process.execPath, process.argv, app.getVersion())
+    }
+  })
   ipcMain.handle(IPC.updatesOpenRelease, (event) => {
     assertTrustedSender(event)
     return updateManager.openRelease()
@@ -398,6 +406,9 @@ if (!hasSingleInstanceLock) {
   })
 
   app.whenReady().then(async () => {
+    if (process.platform === 'darwin' && app.isPackaged) {
+      await registerMacUpdateProcess(process.execPath, process.argv, app.getVersion())
+    }
     app.setAppUserModelId('com.stealthreader.desktop')
     stateStore = new StateStore(join(app.getPath('userData'), 'local-state.json'))
     await stateStore.load()
@@ -415,9 +426,24 @@ if (!hasSingleInstanceLock) {
         if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(IPC.updatesState, state)
       },
       openExternal: (url) => shell.openExternal(url),
-      openInstaller: async (file, portable) => {
+      openInstaller: async (file, portable, version) => {
         if (portable) {
           shell.showItemInFolder(file)
+          return
+        }
+        if (process.platform === 'darwin') {
+          const prepared = await prepareMacUpdate({ dmg: file, executablePath: process.execPath,
+            currentVersion: app.getVersion(), version,
+            userDataDirectory: app.getPath('userData'),
+            arch: app.runningUnderARM64Translation ? 'arm64' : process.arch })
+          try {
+            await stateStore.flush()
+            await prepared.launch()
+          } catch (error) {
+            await prepared.discard()
+            throw error
+          }
+          setTimeout(() => app.quit(), 250)
           return
         }
         const error = await shell.openPath(file)
@@ -430,6 +456,10 @@ if (!hasSingleInstanceLock) {
     await registerInitialBossShortcut()
     createTray()
     await createWindow()
+    if (process.platform === 'darwin' && app.isPackaged) {
+      const failure = await macUpdateFailure(process.execPath, process.argv, app.getVersion())
+      if (failure) dialog.showErrorBox('更新未完成', failure)
+    }
     if (app.isPackaged) {
       updateCheckTimer = setTimeout(() => {
         if (stateStore.getSettings().checkUpdatesOnLaunch) void updateManager.check()

@@ -57,6 +57,9 @@ jobs:
         run: npm run test:reader
       - name: Build application
         run: npm run build
+      - name: Verify macOS in-app replacement and restart
+        if: matrix.platform == 'mac'
+        run: npm run test:mac-update
       - name: Package installers
         # Certificate-free ad-hoc signing only: no signing secrets or keychains are imported.
         # electron-builder otherwise skips even ad-hoc signing for pull_request builds.

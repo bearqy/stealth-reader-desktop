@@ -19,7 +19,7 @@ interface UpdateManagerOptions {
   cacheDirectory: string
   fetch: UpdateFetch
   onState: (state: UpdateState) => void
-  openInstaller: (file: string, portable: boolean) => Promise<void>
+  openInstaller: (file: string, portable: boolean, version: string) => Promise<void>
   openExternal: (url: string) => Promise<void>
 }
 
@@ -128,7 +128,7 @@ export class UpdateManager {
           this.setState({ progress: { received, total, percent: Math.round(received / total * 100) } })
         })
       return this.setState({ status: 'downloaded', message: this.state.packageType === 'dmg'
-        ? '下载完成并已校验。打开 DMG 后，将应用拖入“应用程序”覆盖旧版。'
+        ? '下载完成并已校验。点击“重启并安装更新”，自动替换应用并重新打开，无需拖拽。'
         : this.state.packageType === 'portable'
           ? '下载完成并已校验。打开文件夹后，退出程序并手动替换旧版免安装文件。'
           : '下载完成并已校验。安装时将退出当前程序并启动覆盖安装。' })
@@ -156,17 +156,22 @@ export class UpdateManager {
     if (!this.state.canInstall) {
       return this.setState({ message: '开发模式仅供检查与下载验证，请在正式安装版中执行更新。' })
     }
-    this.setState({ status: 'installing', message: '正在重新校验并打开安装包…' })
+    this.setState({ status: 'installing', message: this.state.packageType === 'dmg'
+      ? '正在校验并准备更新，完成后将退出、替换应用并自动重新打开…' : '正在重新校验并打开安装包…' })
     try {
       await verifyUpdateFile(this.downloadedPath, this.asset)
-      await this.options.openInstaller(this.downloadedPath, this.state.packageType === 'portable')
+    } catch (error) {
+      this.downloadedPath = null
+      return this.setState({ status: 'error', message: error instanceof Error ? error.message : '安装包校验失败，请重新下载。' })
+    }
+    try {
+      await this.options.openInstaller(this.downloadedPath, this.state.packageType === 'portable', this.release!.version)
       if (this.state.packageType === 'portable') {
         return this.setState({ status: 'downloaded', message: '已打开安装包位置，请退出程序后手动替换旧版免安装文件。' })
       }
       return this.getState()
     } catch (error) {
-      this.downloadedPath = null
-      return this.setState({ status: 'error', message: error instanceof Error ? error.message : '无法启动安装包，请重新下载。' })
+      return this.setState({ status: 'downloaded', message: error instanceof Error ? error.message : '无法准备安装，请重试或前往发布页面手动安装。' })
     }
   }
 

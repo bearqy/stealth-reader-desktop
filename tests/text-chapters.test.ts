@@ -2,6 +2,33 @@ import { describe, expect, it } from 'vitest'
 import { parseTextBook, parseTextChapters } from '../src/shared/text-chapters'
 
 describe('parseTextChapters', () => {
+  it.each([
+    '第三百六十三节：幽魂？幽魂！',
+    '第363节: 幽魂?幽魂!',
+    '第三百六十四章 为什么？！',
+    '第365回 快走!!',
+    '第366章难道是他？',
+    '　　## 第３６７节：真的吗？ ##',
+    'Chapter 368: Who?!',
+    '番外：终于回来了！'
+  ])('recognizes a punctuated heading without swallowing it into the previous chapter: %s', (heading) => {
+    const text = `第三百六十二节：上一节\r\n前章正文。\r\n\r\n${heading}\r\n本章正文。\r\n第三百六十九节：下一节\r\n后章正文。`
+    const chapters = parseTextChapters(text)
+    expect(chapters).toHaveLength(3)
+    expect(chapters[1].title).toContain(heading.includes('##') ? '第３６７节：真的吗？' : heading)
+    expect(text.slice(chapters[0].bodyStart, chapters[0].end)).not.toContain('本章正文')
+    expect(text.slice(chapters[1].bodyStart, chapters[1].end)).toBe('本章正文。\r\n')
+    expect(chapters[1].start).toBe(text.indexOf(heading))
+    expect(chapters.map((chapter) => text.slice(chapter.start, chapter.end)).join('')).toBe(text)
+  })
+
+  it('still rejects prose questions/exclamations without valid chapter prefixes', () => {
+    const text = '第一章 初见\n他喊道：“第三百六十三节：幽魂？幽魂！”\n第一章的故事，真的结束了吗？\n普通的感叹句！\n第二章 归来\n正文。'
+    const chapters = parseTextChapters(text)
+    expect(chapters.map((chapter) => chapter.title)).toEqual(['第一章 初见', '第二章 归来'])
+    expect(text.slice(chapters[0].bodyStart, chapters[0].end)).toContain('普通的感叹句！')
+  })
+
   it('recognizes Chinese chapter, volume and section headings with different numbers', () => {
     const content = '第一卷 起点\n卷简介\n第 １２ 章 雨夜\n正文\n第两百零三节归来\n结尾'
     const chapters = parseTextChapters(content)
@@ -63,6 +90,24 @@ describe('parseTextChapters', () => {
 })
 
 describe('parseTextBook', () => {
+  it('separates the screenshot-style section headings inside a volume without losing blank lines', () => {
+    const text = '第五卷 魔君纵横\n\n第三百六十二节：上一节\n前章正文。\n\n\n第三百六十三节：幽魂？幽魂！\n本章正文。\n\n第三百六十四节：下一节\n后章正文。'
+    const book = parseTextBook(text)
+    expect(book.chapters.map((chapter) => chapter.title)).toEqual([
+      '第三百六十二节：上一节', '第三百六十三节：幽魂？幽魂！', '第三百六十四节：下一节'
+    ])
+    expect(book.chapters.every((chapter) => !chapter.generated && chapter.volumeId === book.volumes[0]?.id)).toBe(true)
+    expect(text.slice(book.chapters[0].bodyStart, book.chapters[0].end)).not.toContain('第三百六十三节')
+    expect(book.chapters.map((chapter) => text.slice(chapter.start, chapter.end)).join('')).toBe(text)
+  })
+
+  it('recognizes a large sequence of mixed punctuated section titles rather than merging alternate chapters', () => {
+    const text = Array.from({ length: 2200 }, (_, i) => `第${i + 1}节：${i % 2 ? '幽魂？幽魂！' : '普通标题'}\n本章正文。\n\n`).join('')
+    const chapters = parseTextBook(text).chapters
+    expect(chapters).toHaveLength(2200)
+    expect(chapters.map((chapter) => text.slice(chapter.start, chapter.end)).join('')).toBe(text)
+  })
+
   it('groups chapters under volumes without adding blank volume pages', () => {
     const text = '书籍说明\n第一卷 初来\n\n第一章 风起\n甲\n第二章 相逢\n乙\n第二卷 远行\n第三章 出发\n丙'
     const book = parseTextBook(text)
