@@ -26,6 +26,7 @@ const api: StealthReaderApi = {
     download: () => ipcRenderer.invoke(IPC.updatesDownload) as Promise<UpdateState>,
     cancel: () => ipcRenderer.invoke(IPC.updatesCancel) as Promise<UpdateState>,
     install: () => ipcRenderer.invoke(IPC.updatesInstall) as Promise<UpdateState>,
+    confirmStartup: () => ipcRenderer.invoke(IPC.updatesStartupReady) as Promise<void>,
     openRelease: () => ipcRenderer.invoke(IPC.updatesOpenRelease) as Promise<void>,
     onState: (listener: (state: UpdateState) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, state: UpdateState): void => listener(state)

@@ -68,3 +68,19 @@ it('applies the comfortable font and letter spacing to the reader', () => {
   expect(html).toContain('letter-spacing:0.04em')
   expect(html).toContain('line-height:2')
 })
+
+it('keeps a question/exclamation section out of the previous chapter and renders it when selected', () => {
+  const text = '第三百六十二节：上一节\n前章独有正文。\n\n第三百六十三节：幽魂？幽魂！\n目标章独有正文。\n第三百六十四节：下一节\n后章独有正文。'
+  const { chapters: sections } = parseTextBook(text)
+  const renderSection = (index: number): string => renderToStaticMarkup(createElement(ChapterReader, {
+    document: { content: text, encoding: 'UTF-8', item: { id: 'sections', title: '回归测试', fileName: 'sections.txt',
+      progress: 0, lastOpenedAt: '', readerPosition: { chapterStart: sections[index]!.start, chapterProgress: 0 } } },
+    settings, searchQuery: '', onProgress: () => undefined
+  }))
+  expect(renderSection(0)).not.toContain('目标章独有正文')
+  expect(renderSection(0)).not.toContain('幽魂？幽魂！')
+  expect(renderSection(1)).toContain('第三百六十三节：幽魂？幽魂！')
+  expect(renderSection(1)).toContain('目标章独有正文')
+  expect(renderSection(1)).not.toContain('前章独有正文')
+  expect(renderSection(1)).not.toContain('后章独有正文')
+})

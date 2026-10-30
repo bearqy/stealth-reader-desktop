@@ -76,7 +76,7 @@ describe('release update lifecycle', () => {
     expect((await manager.download()).status).toBe('downloaded')
     expect(openInstaller).not.toHaveBeenCalled()
     expect((await manager.install()).status).toBe('installing')
-    expect(openInstaller).toHaveBeenCalledWith(expect.stringContaining('Stealth-Reader-0.2.0-arm64.dmg'), false)
+    expect(openInstaller).toHaveBeenCalledWith(expect.stringContaining('Stealth-Reader-0.2.0-arm64.dmg'), false, '0.2.0')
   })
 
   it('blocks installation in development builds', async () => {
@@ -85,6 +85,32 @@ describe('release update lifecycle', () => {
     await manager.download()
     expect((await manager.install()).message).toContain('开发模式')
     expect(openInstaller).not.toHaveBeenCalled()
+  })
+
+  it('describes restart installation on Mac without asking the user to drag a DMG', async () => {
+    const { manager } = await setup()
+    await manager.check()
+    const state = await manager.download()
+    expect(state.message).toContain('重启并安装更新')
+    expect(state.message).not.toContain('拖入')
+  })
+
+  it('keeps the verified download retryable if preparation or permissions fail', async () => {
+    const { manager, openInstaller } = await setup()
+    await manager.check()
+    await manager.download()
+    openInstaller.mockRejectedValueOnce(new Error('当前应用目录不可写'))
+    expect(await manager.install()).toMatchObject({ status: 'downloaded', message: '当前应用目录不可写' })
+    expect((await manager.install()).status).toBe('installing')
+    expect(openInstaller).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not start two installers on concurrent clicks', async () => {
+    const { manager, openInstaller } = await setup()
+    await manager.check()
+    await manager.download()
+    await Promise.all([manager.install(), manager.install()])
+    expect(openInstaller).toHaveBeenCalledTimes(1)
   })
 
   it('rechecks integrity at install time and blocks modified files', async () => {

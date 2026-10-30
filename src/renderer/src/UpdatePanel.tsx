@@ -69,7 +69,7 @@ export function UpdatePanel({ state, onState }: {
         {state.status === 'downloaded' && (
           <button className="primary-button" type="button" disabled={!state.canInstall}
             onClick={() => void run(() => window.stealthReader.updates.install())}>
-            {state.packageType === 'dmg' ? '打开安装包并退出'
+            {state.packageType === 'dmg' ? '重启并安装更新'
               : state.packageType === 'portable' ? '打开安装包位置' : '安装更新并退出'}
           </button>
         )}

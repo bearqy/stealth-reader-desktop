@@ -172,6 +172,11 @@ export function App(): React.JSX.Element {
   }, [])
 
   const activeTab = browser.tabs.find((tab) => tab.id === browser.activeTabId)
+  useEffect(() => {
+    if (!loading && settings) {
+      void window.stealthReader.updates.confirmStartup().catch(() => setNotice('更新启动确认未完成，请检查应用安装权限。'))
+    }
+  }, [loading, Boolean(settings)])
   const searchMatchCount = useMemo(() => {
     const term = searchQuery.trim().toLocaleLowerCase()
     if (!term || !document) return 0

@@ -6,6 +6,25 @@ const content = '第一卷 起点\n第一章 初识\n' + '甲'.repeat(500) + '\n
 const { chapters } = parseTextBook(content)
 
 describe('chapter reading positions', () => {
+  it('uses saved overall progress when a formerly merged chapter is repaired', () => {
+    const text = '第三百六十二节：上一节\n' + '甲'.repeat(300)
+      + '\n第三百六十三节：幽魂？幽魂！\n' + '乙'.repeat(300)
+      + '\n第三百六十四节：下一节\n' + '丙'.repeat(300)
+    const repaired = parseTextBook(text).chapters
+    const offset = repaired[1].start + (repaired[1].end - repaired[1].start) / 2
+    const oldMergedEnd = repaired[2].start
+    expect(resolveReadingPosition(repaired, text.length, offset / text.length, {
+      chapterStart: repaired[0].start, chapterProgress: offset / oldMergedEnd
+    })).toEqual({ chapter: 1, ratio: 0.5 })
+  })
+
+  it('does not skip a chapter when reopening its last scroll position', () => {
+    const progress = readingProgress(chapters[0], content.length, 1)
+    expect(resolveReadingPosition(chapters, content.length, progress, {
+      chapterStart: chapters[0].start, chapterProgress: 1
+    })).toEqual({ chapter: 0, ratio: 1 })
+  })
+
   it('restores exact chapter and chapter-relative position across viewport changes', () => {
     expect(resolveReadingPosition(chapters, content.length, 0, {
       chapterStart: chapters[1].start, chapterProgress: 0.75

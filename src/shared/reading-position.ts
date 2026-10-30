@@ -10,11 +10,18 @@ export function validReaderPosition(value: unknown): value is ReaderPosition {
 
 export function resolveReadingPosition(chapters: ReadingChapter[], length: number,
   progress: number, position?: ReaderPosition): { chapter: number; ratio: number } {
-  const offset = validReaderPosition(position) ? position.chapterStart
-    : Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0)) * length
+  const bookOffset = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0)) * length
+  const offset = validReaderPosition(position) ? position.chapterStart : bookOffset
   const found = chapters.findIndex((chapter) => offset < chapter.end)
   const chapter = found >= 0 ? found : Math.max(0, chapters.length - 1)
   const current = chapters[chapter]!
+  // A repaired index may split a formerly merged chapter. If the saved global
+  // offset is now beyond this chapter, recover from it rather than jumping back.
+  // Exclude the exact end boundary: reaching a chapter's bottom is not a next-chapter action.
+  if (validReaderPosition(position) && current.start === position.chapterStart
+    && bookOffset > current.end + 1) {
+    return resolveReadingPosition(chapters, length, progress)
+  }
   const ratio = validReaderPosition(position) && current.start === position.chapterStart
     ? position.chapterProgress : Math.min(1, Math.max(0, (offset - current.start) / Math.max(1, current.end - current.start)))
   return { chapter, ratio }

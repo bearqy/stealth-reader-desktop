@@ -65,10 +65,10 @@ app.whenReady().then(async () => {
         import { ReaderTypographySettings } from './src/renderer/src/ReaderTypographySettings';
         import { DEFAULT_READER_TYPOGRAPHY } from './src/shared/reader-typography';
         import { parseTextBook } from './src/shared/text-chapters';
-        const content = '第一卷 起点\\n第一章 初见\\n' + '第一章完整正文。'.repeat(20).concat('\\n').repeat(100)
+        let content = '第一卷 起点\\n第一章 初见\\n' + '第一章完整正文。'.repeat(20).concat('\\n').repeat(100)
           + '本章结束标记\\n第二卷 重逢\\n第二章 归来\\n' + '重逢前段正文\\n'.repeat(160)
           + '唯一搜索定位目标\\n' + '重逢后段正文\\n'.repeat(80) + '第三章 尾声\\n这是短章的全部内容。';
-        export const book = parseTextBook(content);
+        export let book = parseTextBook(content);
         export const events = [];
         let root = createRoot(document.getElementById('root'));
         let instance = 0;
@@ -100,6 +100,19 @@ app.whenReady().then(async () => {
             searchQuery: options.query || '', onProgress }));
         }
         export function mount(patch = {}) { instance++; options = {}; update(patch); }
+        export function loadPunctuatedSections() {
+          content = '第五卷 回归测试\\n第三百六十二节：上一节\\n' + '上节独有正文。\\n'.repeat(60)
+            + '\\n第三百六十三节：幽魂？幽魂！\\n' + '中节独有正文。\\n'.repeat(90)
+            + '\\n第三百六十四节：下一节\\n后节独有正文。';
+          book = parseTextBook(content);
+          mount();
+        }
+        export function restoreMergedSectionBookmark() {
+          const start = book.chapters[0].start;
+          const offset = book.chapters[1].start + (book.chapters[1].end - book.chapters[1].start) * 0.6;
+          mount({ progress: offset / content.length, position: { chapterStart: start,
+            chapterProgress: (offset - start) / (book.chapters[2].start - start) } });
+        }
         export function unmount() { root.unmount(); root = createRoot(document.getElementById('root')); }
         mount();
       ` } }).outputFiles[0].text
@@ -213,6 +226,31 @@ app.whenReady().then(async () => {
     await delay(100)
     assert.notEqual(await evaluate(`getComputedStyle(document.querySelector('.reader-page')).backgroundColor`), 'rgba(0, 0, 0, 0)')
     console.log('PASS: directory navigation; short final chapter completes; transparent mode toggles correctly')
+
+    await evaluate(`readerHarness.loadPunctuatedSections()`)
+    await until(`document.querySelector('.reader-chapter h2').textContent === '第三百六十二节：上一节'`)
+    assert.equal(await evaluate(`readerHarness.book.chapters.length`), 3)
+    assert.equal(await evaluate(`document.querySelector('.reader-text').textContent.includes('中节独有正文')`), false)
+    await next()
+    await until(`document.querySelector('.reader-chapter h2').textContent === '第三百六十三节：幽魂？幽魂！'`)
+    assert.equal(await evaluate(`document.querySelector('.reader-text').textContent.includes('上节独有正文')`), false)
+    assert.equal(await evaluate(`document.querySelector('.reader-text').textContent.includes('后节独有正文')`), false)
+    await screenshot('reader-punctuated-section.png')
+    await evaluate(`document.querySelector('.chapter-directory-toggle').click()`)
+    await until(`!!document.querySelector('.reader-directory')`)
+    assert.equal(await evaluate(`document.querySelectorAll('.chapter-list button').length`), 3)
+    await evaluate(`document.querySelector('.chapter-list button').click()`)
+    await until(`document.querySelector('.reader-chapter h2').textContent === '第三百六十二节：上一节'`)
+    await evaluate(`readerHarness.update({ query: '中节独有正文' })`)
+    await until(`document.querySelector('.reader-chapter h2').textContent === '第三百六十三节：幽魂？幽魂！' && !!document.querySelector('mark')`)
+    await evaluate(`readerHarness.restoreMergedSectionBookmark()`)
+    await until(`document.querySelector('.reader-chapter h2').textContent === '第三百六十三节：幽魂？幽魂！' && document.querySelector('.reader-chapter-scroll').scrollTop > 10`)
+    assert.ok(Math.abs((await read()).ratio - 0.6) < 0.01)
+    await next()
+    await until(`document.querySelector('.reader-chapter h2').textContent === '第三百六十四节：下一节'`)
+    await previous()
+    await until(`document.querySelector('.reader-chapter h2').textContent === '第三百六十三节：幽魂？幽魂！'`)
+    console.log('PASS: punctuated section titles split correctly; directory/search/chapter navigation and old merged-chapter bookmarks work')
 
     await evaluate(`readerHarness.showTypographySettings()`)
     await until(`!!document.querySelector('#readerFontFamily')`)
