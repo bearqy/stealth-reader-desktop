@@ -34,6 +34,9 @@ export function ChapterReader({ document, settings, searchQuery, onProgress }: {
   const [scrollRatio, setScrollRatio] = useState(initial.current.ratio)
   const viewport = useRef<HTMLDivElement>(null)
   const article = useRef<HTMLElement>(null)
+  const directoryToggle = useRef<HTMLButtonElement>(null)
+  const chapterList = useRef<HTMLDivElement>(null)
+  const activeChapterButton = useRef<HTMLButtonElement>(null)
   const ratioRef = useRef(initial.current.ratio)
   const pendingRatio = useRef<number | null>(initial.current.ratio)
   const searchTarget = useRef<number | null>(null)
@@ -89,6 +92,29 @@ export function ChapterReader({ document, settings, searchQuery, onProgress }: {
     }
     setDirectoryOpen(false)
   }, [book, chapterIndex])
+
+  const closeDirectory = (): void => {
+    setDirectoryOpen(false)
+    directoryToggle.current?.focus({ preventScroll: true })
+  }
+
+  const selectChapter = (index: number): void => {
+    // Selecting the highlighted chapter is a return to reading, not a restart.
+    if (index === chapterIndex) setDirectoryOpen(false)
+    else jumpChapter(index)
+    viewport.current?.focus({ preventScroll: true })
+  }
+
+  useLayoutEffect(() => {
+    const list = chapterList.current
+    const active = activeChapterButton.current
+    if (!directoryOpen || !list || !active) return
+    const row = active.getBoundingClientRect()
+    const bounds = list.getBoundingClientRect()
+    // Scroll only the directory, leaving the reading viewport/bookmark untouched.
+    list.scrollTop += row.top - bounds.top + (row.height - list.clientHeight) / 2
+    active.focus({ preventScroll: true })
+  }, [directoryOpen, chapterIndex])
 
   // A full-book query can jump to a different chapter; render/highlight only that chapter.
   useEffect(() => {
@@ -162,30 +188,29 @@ export function ChapterReader({ document, settings, searchQuery, onProgress }: {
       if (event.key === 'ArrowLeft') { event.preventDefault(); jumpChapter(chapterIndex - 1) }
     }}>
       <div className="reader-chapter-controls">
-        <button className="chapter-directory-toggle" type="button" aria-controls="reader-directory"
+        <button className="chapter-directory-toggle" type="button" ref={directoryToggle} aria-controls="reader-directory"
           aria-expanded={directoryOpen} onClick={() => setDirectoryOpen((open) => !open)}>
           目录 <span>{book.volumes.length ? `${book.volumes.length} 卷 · ` : ''}{book.chapters.length} 章</span>
         </button>
         <span className="current-chapter" title={[volume?.title, chapter.title].filter(Boolean).join(' / ')}>
           {volume && <span className="reader-volume-label">{volume.title} / </span>}{chapter.title}
         </span>
-        <button className="chapter-nav-button" type="button" disabled={chapterIndex === 0} onClick={() => jumpChapter(chapterIndex - 1)}>上一章</button>
-        <button className="chapter-nav-button" type="button" disabled={chapterIndex === book.chapters.length - 1} onClick={() => jumpChapter(chapterIndex + 1)}>下一章</button>
       </div>
       {directoryOpen && (
         <nav className="reader-directory" id="reader-directory" aria-label="章节目录" onKeyDown={(event) => {
-          if (event.key === 'Escape') setDirectoryOpen(false)
+          if (event.key === 'Escape') closeDirectory()
         }}>
           <div className="directory-heading"><strong>分卷目录 · {book.chapters.length} 章</strong>
-            <button className="chapter-nav-button" type="button" aria-label="关闭目录" onClick={() => setDirectoryOpen(false)}>关闭</button></div>
+            <button className="chapter-nav-button" type="button" aria-label="关闭目录" onClick={closeDirectory}>关闭</button></div>
           {chapter.generated && <p className="directory-hint">未识别到章节标题，已按段落自动分段。</p>}
-          <div className="chapter-list">
+          <div className="chapter-list" ref={chapterList}>
             {groups.map((group) => (
               <details className="volume-group" key={group.volume?.id ?? 'ungrouped'} open>
                 <summary>{group.volume?.title ?? (book.volumes.length ? '卷前 / 未分卷' : '正文')}<span>{group.chapters.length} 章</span></summary>
                 {group.chapters.map((item) => (
                   <button key={item.id} type="button" title={item.title}
-                    aria-current={item.index === chapterIndex ? 'location' : undefined} onClick={() => jumpChapter(item.index)}>
+                    ref={item.index === chapterIndex ? activeChapterButton : undefined}
+                    aria-current={item.index === chapterIndex ? 'location' : undefined} onClick={() => selectChapter(item.index)}>
                     {item.title}
                   </button>
                 ))}
@@ -210,14 +235,16 @@ export function ChapterReader({ document, settings, searchQuery, onProgress }: {
             <h2>{highlighted.title}</h2>
             <div className="reader-text">{body ? highlighted.body : <span className="directory-hint">本章暂无正文</span>}</div>
           </section>
+          <footer className="reader-chapter-navigation" aria-label="章节翻页">
+            <button type="button" disabled={chapterIndex === 0} onClick={() => selectChapter(chapterIndex - 1)}>上一章</button>
+            <button type="button" disabled={chapterIndex === book.chapters.length - 1}
+              onClick={() => selectChapter(chapterIndex + 1)}>{chapterIndex === book.chapters.length - 1 ? '全书完' : '下一章'}</button>
+          </footer>
         </article>
       </div>
-      <footer className="reader-chapter-navigation" aria-label="章节翻页">
-        <button type="button" disabled={chapterIndex === 0} onClick={() => jumpChapter(chapterIndex - 1)}>上一章</button>
-        <span>第 {chapterIndex + 1} / {book.chapters.length} 章 · 本章 {Math.round(scrollRatio * 100)}%<span className="reader-book-progress"> · 全书 {Math.round(progress * 100)}%</span></span>
-        <button type="button" disabled={chapterIndex === book.chapters.length - 1}
-          onClick={() => jumpChapter(chapterIndex + 1)}>{chapterIndex === book.chapters.length - 1 ? '全书完' : '下一章'}</button>
-      </footer>
+      <div className="reader-reading-progress">
+        第 {chapterIndex + 1} / {book.chapters.length} 章 · 本章 {Math.round(scrollRatio * 100)}% · 全书 {Math.round(progress * 100)}%
+      </div>
       <div className="reader-key-hint">章内上下滚动 · ← → 切换章节 · PageUp / PageDown / 空格滚动正文</div>
     </div>
   )

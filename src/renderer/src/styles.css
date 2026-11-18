@@ -912,6 +912,7 @@ button {
 .chapter-list {
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .chapter-list button {
@@ -930,6 +931,11 @@ button {
 .chapter-list button:hover,
 .chapter-list button[aria-current="location"] {
   background: #e3ece4;
+}
+
+.chapter-list button[aria-current="location"] {
+  font-weight: 700;
+  box-shadow: inset 3px 0 #527460;
 }
 
 .reader-scroll {
@@ -1016,7 +1022,7 @@ button {
 
 .reader-chapter-scroll .reader-page {
   min-height: 100%;
-  padding: 26px clamp(20px, 4vw, 48px) 64px;
+  padding: 26px clamp(20px, 4vw, 48px);
   margin: 0 auto;
   overflow-wrap: anywhere;
 }
@@ -1085,15 +1091,19 @@ button {
 
 .reader-chapter-navigation {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 12px;
-  min-height: 44px;
-  padding: 4px 24px;
+  margin-top: 24px;
+  font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  letter-spacing: normal;
+}
+
+.reader-reading-progress {
+  padding: 6px 12px 2px;
   color: #52675a;
   font-size: 12px;
-  background: #f4f7f3;
-  border-top: 1px solid rgba(22, 40, 31, 0.09);
+  text-align: center;
 }
 
 .chapter-nav-button,
@@ -1106,6 +1116,11 @@ button {
   border: 1px solid rgba(38, 75, 52, 0.2);
   border-radius: 7px;
   cursor: pointer;
+}
+
+.reader-chapter-navigation button {
+  min-width: 84px;
+  border-color: currentColor;
 }
 
 .chapter-nav-button:disabled,
@@ -1135,12 +1150,6 @@ button {
 .volume-group[open] summary::before { content: '▾'; }
 .volume-group summary span { margin-left: auto; opacity: 0.55; white-space: nowrap; }
 .volume-group button { padding-left: 24px; }
-
-:is(.text-only-web, .transparent-app-chrome) .reader-chapter-navigation {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
 
 :is(.text-only-web, .transparent-app-chrome) .reader-key-hint { opacity: 0.45; }
 

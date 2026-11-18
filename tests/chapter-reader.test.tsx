@@ -36,9 +36,13 @@ it('renders only the current chapter instead of a full-book scrolling document',
   expect(html).toContain('2 卷')
 })
 
-it('uses chapter navigation at both ends with no intra-chapter page counter', () => {
+it('places one set of chapter navigation buttons immediately after the chapter body', () => {
   const html = render()
   expect(html).toContain('aria-label="章节翻页"')
+  expect(html).toContain('</section><footer class="reader-chapter-navigation"')
+  expect(html).toContain('</footer></article>')
+  expect(html.split('>上一章</button>')).toHaveLength(2)
+  expect(html.split('>下一章</button>')).toHaveLength(2)
   expect(html).toContain('第 1 / 2 章')
   expect(html).toContain('disabled="">上一章')
   const last = render({ chapterStart: chapters[1]!.start, chapterProgress: 0.5 })

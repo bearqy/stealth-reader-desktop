@@ -113,6 +113,15 @@ app.whenReady().then(async () => {
           mount({ progress: offset / content.length, position: { chapterStart: start,
             chapterProgress: (offset - start) / (book.chapters[2].start - start) } });
         }
+        export function loadLongDirectory() {
+          content = Array.from({ length: 4 }, (_, volume) => '第' + (volume + 1) + '卷 测试卷\\n'
+            + Array.from({ length: 60 }, (_, index) => {
+              const number = volume * 60 + index + 1;
+              return '第' + number + '章 测试章节\\n' + '本章只用于定位目录和恢复阅读位置。\\n'.repeat(80);
+            }).join('')).join('');
+          book = parseTextBook(content);
+          mount({ position: { chapterStart: book.chapters[170].start, chapterProgress: 0.53 } });
+        }
         export function unmount() { root.unmount(); root = createRoot(document.getElementById('root')); }
         mount();
       ` } }).outputFiles[0].text
@@ -135,6 +144,11 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('.reader-text')).lineHeight`), '40px')
     assert.ok(await evaluate(`getComputedStyle(document.querySelector('.reader-text')).fontFamily.includes('PingFang SC')`))
     await screenshot('reader-default.png')
+    assert.equal(await evaluate(`document.querySelector('.reader-chapter-controls .chapter-nav-button')`), null)
+    assert.ok(await evaluate(`(() => {
+      const v = document.querySelector('.reader-chapter-scroll').getBoundingClientRect();
+      return document.querySelector('.reader-chapter-navigation').getBoundingClientRect().top > v.bottom;
+    })()`))
     await previous()
     assert.equal((await read()).title, '第一章 初见')
     console.log('PASS: whole chapter scrolls vertically; only one chapter is rendered; first-chapter boundary')
@@ -162,6 +176,13 @@ app.whenReady().then(async () => {
     state = await read()
     assert.equal(state.title, '第一章 初见')
     assert.ok(state.ratio > 0.99)
+    assert.ok(await evaluate(`(() => {
+      const v = document.querySelector('.reader-chapter-scroll').getBoundingClientRect();
+      const body = document.querySelector('.reader-text').getBoundingClientRect();
+      const buttons = [...document.querySelectorAll('.reader-chapter-navigation button')].map(b => b.getBoundingClientRect());
+      return buttons.every(b => b.top >= body.bottom && b.bottom <= v.bottom)
+        && Math.abs((buttons[0].left + buttons[1].right) / 2 - (body.left + body.right) / 2) < 2;
+    })()`))
     await next()
     await until(`document.querySelector('.reader-chapter h2').textContent === '第二章 归来' && document.querySelector('.reader-chapter-scroll').scrollTop < 2`)
     await previous()
@@ -251,6 +272,36 @@ app.whenReady().then(async () => {
     await previous()
     await until(`document.querySelector('.reader-chapter h2').textContent === '第三百六十三节：幽魂？幽魂！'`)
     console.log('PASS: punctuated section titles split correctly; directory/search/chapter navigation and old merged-chapter bookmarks work')
+
+    await evaluate(`readerHarness.loadLongDirectory()`)
+    await until(`document.querySelector('.reader-chapter h2')?.textContent === '第171章 测试章节'`)
+    await delay(100)
+    const restoredTop = (await read()).top
+    assert.ok(restoredTop > 0 && Math.abs((await read()).ratio - 0.53) < 0.01)
+    const directoryShowsCurrent = `(() => {
+      const list = document.querySelector('.chapter-list');
+      const current = list?.querySelector('[aria-current="location"]');
+      if (!current) return false;
+      const row = current.getBoundingClientRect();
+      const bounds = list.getBoundingClientRect();
+      return current.textContent === '第171章 测试章节' && current.closest('details').open
+        && list.scrollTop > 0 && row.top >= bounds.top && row.bottom <= bounds.bottom
+        && document.activeElement === current;
+    })()`
+    await evaluate(`document.querySelector('.chapter-directory-toggle').click()`)
+    await until(directoryShowsCurrent)
+    assert.equal(await evaluate(`document.querySelectorAll('.volume-group').length`), 4)
+    assert.equal((await read()).top, restoredTop)
+    await evaluate(`document.querySelector('.chapter-list [aria-current="location"]').closest('details').open = false;
+      document.querySelector('.chapter-list').scrollTop = 0;
+      document.querySelector('.reader-directory').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));`)
+    await until(`!document.querySelector('.reader-directory') && document.activeElement === document.querySelector('.chapter-directory-toggle')`)
+    await evaluate(`document.querySelector('.chapter-directory-toggle').click()`)
+    await until(directoryShowsCurrent)
+    await evaluate(`document.querySelector('.chapter-list [aria-current="location"]').click()`)
+    await until(`!document.querySelector('.reader-directory') && document.activeElement === document.querySelector('.reader-chapter-scroll')`)
+    assert.equal((await read()).top, restoredTop)
+    console.log('PASS: long multi-volume directory opens at saved chapter, refocuses it on reopen, and preserves chapter scroll')
 
     await evaluate(`readerHarness.showTypographySettings()`)
     await until(`!!document.querySelector('#readerFontFamily')`)
