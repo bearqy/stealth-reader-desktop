@@ -77,7 +77,7 @@ export function UpdatePanel({ state, onState }: {
           onClick={() => void run(() => window.stealthReader.updates.openRelease())}>查看 GitHub Releases ↗</button>
       </div>
       {!state.canInstall && state.packageType && <p className="update-hint">开发模式可检查和下载，安装操作仅在正式安装版中启用。</p>}
-      {state.checkedAt && <p className="update-hint">上次检查：{new Date(state.checkedAt).toLocaleString()}</p>}
+      {state.checkedAt && <p className="update-hint">上次成功检查：{new Date(state.checkedAt).toLocaleString()}</p>}
     </section>
   )
 }

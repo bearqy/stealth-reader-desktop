@@ -70,6 +70,80 @@ describe('release update lifecycle', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
+  it('does not publish checking or error states for a failed background probe', async () => {
+    const fetch = vi.fn()
+      .mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValueOnce(Response.json(githubRelease()))
+      .mockResolvedValueOnce(new Response(null, { status: 429 }))
+      .mockResolvedValueOnce(new Response(installerBytes))
+    const { manager, states } = await setup({ fetch })
+    const initial = manager.getState()
+    expect(await manager.checkInBackground()).toBe('failed')
+    expect(manager.getState()).toEqual(initial)
+    expect(states).toEqual([])
+    expect(await manager.checkInBackground()).toBe('success')
+    const offer = manager.getState()
+    expect(offer.status).toBe('available')
+    expect(await manager.checkInBackground()).toBe('failed')
+    expect(manager.getState()).toEqual(offer)
+    expect(states.map((state) => state.status)).toEqual(['available'])
+    expect((await manager.download()).status).toBe('downloaded')
+    expect(await manager.checkInBackground()).toBe('deferred')
+    expect(fetch).toHaveBeenCalledTimes(4)
+  })
+
+  it('lets a manual check join an in-flight background check and displays its error', async () => {
+    let finish!: (response: Response) => void
+    const fetch = vi.fn(() => new Promise<Response>((resolve) => { finish = resolve }))
+    const { manager, states } = await setup({ fetch })
+    const background = manager.checkInBackground()
+    const manual = manager.check()
+    manager.cancelBackgroundCheck()
+    expect(manager.check()).toBe(manual)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    finish(new Response(null, { status: 429 }))
+    expect(await manual).toMatchObject({ status: 'error', message: expect.stringContaining('受限') })
+    expect(await background).toBe('failed')
+    expect(states.map((state) => state.status)).toEqual(['checking', 'error'])
+  })
+
+  it('aborts a slow background request on timeout without surfacing an error', async () => {
+    const fetch = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+    }))
+    const { manager, states } = await setup({ fetch })
+    vi.useFakeTimers()
+    try {
+      const background = manager.checkInBackground()
+      await vi.advanceTimersByTimeAsync(20_000)
+      expect(await background).toBe('failed')
+      expect(states).toEqual([])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not let a late background response overwrite an explicit download', async () => {
+    let finish!: (response: Response) => void
+    let signal: AbortSignal | null | undefined
+    let checks = 0
+    const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (!url.includes('/releases/latest')) return new Response(installerBytes)
+      if (checks++ === 0) return Response.json(githubRelease())
+      signal = init?.signal
+      return new Promise<Response>((resolve) => { finish = resolve })
+    })
+    const { manager } = await setup({ fetch })
+    await manager.checkInBackground()
+    const background = manager.checkInBackground()
+    const downloaded = await manager.download()
+    expect(downloaded.status).toBe('downloaded')
+    expect(signal?.aborted).toBe(true)
+    finish(Response.json(githubRelease('0.3.0')))
+    expect(await background).toBe('deferred')
+    expect(manager.getState()).toEqual(downloaded)
+  })
+
   it('downloads and verifies, then opens the installer only after the explicit install action', async () => {
     const { manager, openInstaller } = await setup()
     await manager.check()

@@ -1,5 +1,6 @@
 import type { UpdateState } from '../shared/contracts'
 import { downloadUpdateFile, verifyUpdateFile, type UpdateFetch } from './update-download'
+import type { BackgroundCheckResult } from './update-scheduler'
 import {
   initialUpdateState,
   isNewerVersion,
@@ -23,12 +24,20 @@ interface UpdateManagerOptions {
   openExternal: (url: string) => Promise<void>
 }
 
+interface CheckContext {
+  interactive: boolean
+  controller: AbortController
+  cancelled: boolean
+  result: BackgroundCheckResult
+}
+
 export class UpdateManager {
   private state: UpdateState
   private release: ParsedRelease | null = null
   private asset: ReleaseAsset | null = null
   private downloadedPath: string | null = null
   private operation: Promise<UpdateState> | null = null
+  private activeCheck: { context: CheckContext; state: Promise<UpdateState> } | null = null
   private abort: AbortController | null = null
   private cancelRequested = false
 
@@ -49,20 +58,56 @@ export class UpdateManager {
 
   check(): Promise<UpdateState> {
     if (this.operation) return this.operation
-    if (!this.state.packageType || ['downloaded', 'installing'].includes(this.state.status)) {
-      return Promise.resolve(this.getState())
+    const running = this.activeCheck
+    if (running && !running.context.cancelled) {
+      if (!running.context.interactive) {
+        running.context.interactive = true
+        this.showChecking()
+      }
+      return running.state
     }
-    const operation = this.checkRelease()
-    this.operation = operation
-    void operation.finally(() => { this.operation = null })
-    return operation
+    return this.canCheck() ? this.startCheck(true).state : Promise.resolve(this.getState())
   }
 
-  private async checkRelease(): Promise<UpdateState> {
+  async checkInBackground(): Promise<BackgroundCheckResult> {
+    if (!this.canCheck()) return 'deferred'
+    const request = this.activeCheck ?? this.startCheck(false)
+    await request.state
+    return request.context.result
+  }
+
+  cancelBackgroundCheck(): void {
+    const context = this.activeCheck?.context
+    if (context && !context.interactive) {
+      context.cancelled = true
+      context.controller.abort()
+    }
+  }
+
+  private canCheck(): boolean {
+    return Boolean(this.state.packageType) && !this.operation &&
+      !['downloaded', 'installing'].includes(this.state.status)
+  }
+
+  private startCheck(interactive: boolean): NonNullable<UpdateManager['activeCheck']> {
+    const context: CheckContext = { interactive, controller: new AbortController(), cancelled: false, result: 'failed' }
+    const state = this.checkRelease(context).finally(() => {
+      if (this.activeCheck?.context === context) this.activeCheck = null
+    })
+    const request = { context, state }
+    this.activeCheck = request
+    return request
+  }
+
+  private showChecking(): void {
     this.release = null
     this.asset = null
     this.setState({ status: 'checking', message: '正在连接 GitHub Releases…', progress: null, latest: null })
-    const controller = new AbortController()
+  }
+
+  private async checkRelease(context: CheckContext): Promise<UpdateState> {
+    if (context.interactive) this.showChecking()
+    const { controller } = context
     const timer = setTimeout(() => controller.abort(), 20_000)
     try {
       const response = await this.options.fetch(LATEST_RELEASE_API, {
@@ -77,15 +122,20 @@ export class UpdateManager {
         if (response.status === 404) throw new Error('暂未找到公开的正式 Release，请稍后重试')
         throw new Error(`检查版本失败（HTTP ${response.status}）`)
       }
-      this.release = parseGitHubRelease(await response.json())
-      this.asset = selectReleaseAsset(this.release, this.options.target)
+      const release = parseGitHubRelease(await response.json())
+      controller.signal.throwIfAborted()
+      const asset = selectReleaseAsset(release, this.options.target)
+      const newer = isNewerVersion(release.version, this.state.currentVersion)
+      this.release = release
+      this.asset = asset
+      context.result = 'success'
       const latest = {
         version: this.release.version, title: this.release.title, notes: this.release.notes,
         publishedAt: this.release.publishedAt, assetName: this.asset?.name ?? null,
         size: this.asset?.size ?? null
       }
       const checkedAt = new Date().toISOString()
-      if (!isNewerVersion(this.release.version, this.state.currentVersion)) {
+      if (!newer) {
         return this.setState({ status: 'up-to-date', latest, checkedAt, message: '当前已是最新版本。' })
       }
       if (!this.asset || !this.asset.sha256) {
@@ -96,6 +146,8 @@ export class UpdateManager {
       }
       return this.setState({ status: 'available', latest, checkedAt, message: `发现新版本 v${latest.version}。` })
     } catch (error) {
+      if (context.cancelled) context.result = 'deferred'
+      if (!context.interactive) return this.getState()
       this.asset = null
       return this.setState({ status: 'error', message: error instanceof Error && !controller.signal.aborted &&
         !['TypeError', 'FetchError'].includes(error.name)
@@ -107,9 +159,12 @@ export class UpdateManager {
 
   download(): Promise<UpdateState> {
     if (this.operation) return this.operation
+    if (this.activeCheck?.context.interactive) return this.activeCheck.state
     if (!this.asset?.sha256 || !['available', 'error'].includes(this.state.status)) {
       return Promise.resolve(this.getState())
     }
+    // Download the already-known offer immediately, without waiting on a background probe.
+    this.cancelBackgroundCheck()
     const operation = this.downloadRelease()
     this.operation = operation
     void operation.finally(() => { this.operation = null })
