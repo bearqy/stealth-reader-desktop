@@ -26,6 +26,7 @@ import {
 import { resolveWindowOpacity } from './window-visibility'
 import { UpdateManager } from './update-manager'
 import { createUpdateFetch } from './update-network'
+import { UpdateScheduler } from './update-scheduler'
 import { prepareMacUpdate, registerMacUpdateProcess, confirmMacUpdateStartup, macUpdateFailure } from './mac-update'
 
 let mainWindow: BrowserWindow | null = null
@@ -33,7 +34,7 @@ let tray: Tray | null = null
 let browserManager: BrowserManager | null = null
 let stateStore: StateStore
 let updateManager: UpdateManager
-let updateCheckTimer: NodeJS.Timeout | null = null
+let updateScheduler: UpdateScheduler | null = null
 let quitting = false
 let pointerVisibilityTimer: NodeJS.Timeout | null = null
 let appliedWindowOpacity: number | null = null
@@ -285,6 +286,7 @@ function registerIpc(): void {
       browserManager?.setChromeTransparent(next.transparentAppChrome)
     }
     applyWindowSettings(next)
+    updateScheduler?.setEnabled(next.checkUpdatesOnLaunch)
     return next
   })
 
@@ -452,6 +454,12 @@ if (!hasSingleInstanceLock) {
         setTimeout(() => app.quit(), 250)
       }
     })
+    if (app.isPackaged && updateManager.getState().packageType) {
+      updateScheduler = new UpdateScheduler(
+        () => updateManager.checkInBackground(),
+        () => updateManager.cancelBackgroundCheck()
+      )
+    }
     registerIpc()
     await registerInitialBossShortcut()
     createTray()
@@ -460,11 +468,7 @@ if (!hasSingleInstanceLock) {
       const failure = await macUpdateFailure(process.execPath, process.argv, app.getVersion())
       if (failure) dialog.showErrorBox('更新未完成', failure)
     }
-    if (app.isPackaged) {
-      updateCheckTimer = setTimeout(() => {
-        if (stateStore.getSettings().checkUpdatesOnLaunch) void updateManager.check()
-      }, 10_000)
-    }
+    updateScheduler?.setEnabled(stateStore.getSettings().checkUpdatesOnLaunch)
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) void createWindow()
@@ -475,7 +479,7 @@ if (!hasSingleInstanceLock) {
 
 app.on('before-quit', () => {
   quitting = true
-  if (updateCheckTimer) clearTimeout(updateCheckTimer)
+  updateScheduler?.setEnabled(false)
   globalShortcut.unregisterAll()
 })
 

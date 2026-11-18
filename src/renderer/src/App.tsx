@@ -680,8 +680,8 @@ export function App(): React.JSX.Element {
               {updates && <UpdatePanel state={updates} onState={setUpdates} />}
               <label className="setting-card setting-toggle">
                 <div>
-                  <strong>启动时检查更新</strong>
-                  <span>从 GitHub 获取正式版本信息，不自动下载或安装</span>
+                  <strong>自动检查更新</strong>
+                  <span>启动后及运行期间在后台检查，约每 6 小时一次。网络失败静默重试，不自动下载或安装。</span>
                 </div>
                 <input checked={settings.checkUpdatesOnLaunch} type="checkbox"
                   onChange={(event) => void updateSettings({ checkUpdatesOnLaunch: event.target.checked })} />
